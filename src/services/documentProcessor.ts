@@ -11,7 +11,7 @@ interface ProcessingResult {
 
 export async function processDocument(file: File): Promise<ProcessingResult> {
   const fileId = uuidv4();
-  
+
   // Upload to secure storage
   const fileBuffer = await file.arrayBuffer();
   await prisma.document.create({

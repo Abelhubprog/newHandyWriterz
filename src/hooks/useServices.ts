@@ -3,7 +3,13 @@ import { cloudflareDb } from '@/lib/cloudflare';
 import toast from 'react-hot-toast';
 
 // Import the ServiceData type from d1Client
-import type { ServiceData } from '@/lib/d1Client';
+type ServiceData = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  is_active?: boolean;
+};
 
 export function useServices() {
   const [services, setServices] = useState<ServiceData[]>([]);

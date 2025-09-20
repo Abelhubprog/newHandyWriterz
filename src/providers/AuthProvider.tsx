@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser, useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
-import { adminAuth } from '@/services/adminAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { performLogout } from '@/utils/authLogout';
+import { hasAdminRole } from '@/utils/clerkRoles';
 
 // Auth Context Type Definition
 type AuthContextType = {
@@ -37,23 +37,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isLoading = !userLoaded || !authLoaded || isCheckingAdmin;
 
-  const checkAdminStatusAndUpdate = async (userId: string) => {
+  const checkAdminStatusAndUpdate = async (currentUser: ReturnType<typeof useUser>['user']) => {
+    setIsCheckingAdmin(true);
     try {
-      setIsCheckingAdmin(true);
-      
-      // Use adminAuth service instead of direct database query
-      
-      // Simply mark as non-admin to allow app to function
-      setIsAdmin(false);
-      return false;
-      
-      // Use adminAuth service to check admin status
-      const isUserAdmin = await adminAuth.isAdmin(userId);
+      const isUserAdmin = currentUser ? hasAdminRole(currentUser) : false;
       setIsAdmin(isUserAdmin);
       return isUserAdmin;
-    } catch (error) {
-      setIsAdmin(false);
-      return false;
     } finally {
       setIsCheckingAdmin(false);
     }
@@ -61,8 +50,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Effect to check admin status when user changes
   useEffect(() => {
-    if (user?.id) {
-      checkAdminStatusAndUpdate(user.id);
+    if (user) {
+      checkAdminStatusAndUpdate(user);
     } else {
       setIsAdmin(false);
     }
@@ -70,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const result = await clerk.signIn.create({
+      const result = await clerk.client.signIn.create({
         identifier: email,
         password,
       });
@@ -82,7 +71,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         navigate(from, { replace: true });
         return { success: true };
       } else {
-        const firstFactor = result.supportedFirstFactors[0];
         toast.error("Verification Required: Additional verification required. Please contact support.");
         return { success: false, error: "Additional verification required" };
       }
@@ -94,30 +82,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginAdmin = async (email: string, password: string) => {
     try {
-      const result = await clerk.signIn.create({
+      const result = await clerk.client.signIn.create({
         identifier: email,
         password,
       });
 
       if (result.status === "complete") {
-        await clerk.session.sync();
-        
-        if (user?.id) {
-          const isUserAdmin = await checkAdminStatusAndUpdate(user.id);
-          
-          if (isUserAdmin) {
-            toast.success("Welcome Back: Successfully signed in as admin");
-            const from = location.state?.from?.pathname || '/admin';
-            navigate(from, { replace: true });
-            return { success: true };
-          } else {
-            toast.error("Access Denied: Not authorized as admin");
-            await signOut();
-            navigate('/auth/sign-in', { replace: true });
-            return { success: false, error: "Not authorized as admin" };
-          }
+        await clerk.user?.reload?.();
+
+        const refreshedUser = clerk.user ?? user;
+        const isUserAdmin = await checkAdminStatusAndUpdate(refreshedUser);
+
+        if (isUserAdmin) {
+          toast.success("Welcome Back: Successfully signed in as admin");
+          const from = location.state?.from?.pathname || '/admin';
+          navigate(from, { replace: true });
+          return { success: true };
+        } else {
+          toast.error("Access Denied: Not authorized as admin");
+          await signOut();
+          navigate('/auth/sign-in', { replace: true });
+          return { success: false, error: "Not authorized as admin" };
         }
-        return { success: false, error: "Failed to get user information" };
       } else {
         toast.error("Login Failed: Unable to sign in as admin");
         return { success: false, error: "Login failed" };
@@ -130,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signup = async (email: string, password: string, fullName: string) => {
     try {
-      const result = await clerk.signUp.create({
+      const result = await clerk.client.signUp.create({
         emailAddress: email,
         password,
         firstName: fullName.split(' ')[0],
@@ -154,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await performLogout();
+      await performLogout(clerk.signOut);
       setIsAdmin(false);
       navigate('/auth/sign-in', { replace: true });
     } catch (error: any) {
@@ -164,7 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     try {
-      await clerk.signIn.create({
+      await clerk.client.signIn.create({
         strategy: "reset_password_email_code",
         identifier: email,
       });
@@ -191,9 +177,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const sendPasswordResetEmail = async (email: string) => {
     try {
-      if (!clerk?.signIn) throw new Error("Authentication system not available");
-      
-      await clerk.signIn.create({
+      await clerk.client.signIn.create({
         strategy: "reset_password_email_code",
         identifier: email,
       });
@@ -207,11 +191,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithMagicLink = async (email: string) => {
     try {
-      if (!clerk?.signIn) throw new Error("Authentication system not available");
-      
-      await clerk.signIn.create({
+      await clerk.client.signIn.create({
         strategy: "email_link",
         identifier: email,
+        redirectUrl: window.location.origin,
       });
       toast.success("Magic Link Sent: Check your email for the sign in link");
       return { success: true };
@@ -258,3 +241,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

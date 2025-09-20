@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
-import { documentSubmissionService } from '@/services/documentSubmissionService';
+import { useUser, useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { documentSubmissionService, SubmissionMetadata } from '@/services/documentSubmissionService';
 import { documentQueueService } from '@/services/documentQueueService';
 import { adminNotificationService } from '@/services/adminNotificationService';
 import { toast } from 'react-hot-toast';
@@ -25,6 +25,7 @@ export function useDocumentSubmission({
   autoNotify = true
 }: UseDocumentSubmissionProps = {}) {
   const { user, isSignedIn } = useUser();
+  const { getToken } = useClerkAuth();
   const [status, setStatus] = useState<SubmissionStatus>('idle');
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -106,6 +107,12 @@ export function useDocumentSubmission({
       return { success: false, error: new Error('Submission already in progress') };
     }
 
+    // Normalize metadata once for use across direct + queue flows
+    const normalized: SubmissionMetadata = {
+      orderId: (metadata as any).orderId || 'unknown',
+      ...(metadata as any),
+    };
+
     try {
       setIsSubmitting(true);
       setError(null);
@@ -114,10 +121,13 @@ export function useDocumentSubmission({
       // 1. First attempt with direct submission
       try {
         setStatus('submitting');
+        const token = await getToken({ template: undefined }).catch(() => undefined);
         const result = await documentSubmissionService.submitDocumentsToAdmin(
           user.id,
           files,
-          metadata
+          normalized,
+          { notifyInApp: true, notifyAdminEmail: true },
+          token || ''
         );
         
         if (result.success) {
@@ -153,8 +163,7 @@ export function useDocumentSubmission({
           
           return { 
             success: true, 
-            submissionId: result.submissionId,
-            channels: result.notificationChannels
+            submissionId: result.submissionId
           };
         }
         
@@ -167,7 +176,7 @@ export function useDocumentSubmission({
         const queueId = await documentQueueService.addToQueue(
           user.id,
           files,
-          metadata
+          normalized
         );
         
         setSubmissionId(queueId);
@@ -197,7 +206,7 @@ export function useDocumentSubmission({
         error: err 
       };
     }
-  }, [isSignedIn, user, isSubmitting, autoNotify, checkQueueStatus, onSuccess, onError]);
+  }, [isSignedIn, user, isSubmitting, autoNotify, checkQueueStatus, onSuccess, onError, getToken]);
 
   // Cancel submission if it's in progress
   const cancelSubmission = useCallback(() => {

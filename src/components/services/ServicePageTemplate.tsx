@@ -2,21 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { 
-  ThumbsUp, 
-  MessageSquare, 
-  Share2, 
-  BookOpen, 
-  Clock, 
-  Calendar, 
-  User, 
+import {
+  ThumbsUp,
+  MessageSquare,
+  Share2,
+  BookOpen,
+  Clock,
+  Calendar,
+  User,
   Tag,
   Search,
   ArrowUp,
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
@@ -51,10 +51,10 @@ interface ServicePageProps {
   serviceDescription: string;
 }
 
-const ServicePageTemplate: React.FC<ServicePageProps> = ({ 
-  serviceType, 
+const ServicePageTemplate: React.FC<ServicePageProps> = ({
+  serviceType,
   serviceName,
-  serviceDescription 
+  serviceDescription
 }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,10 +67,10 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
   const { ref: loadMoreRef, inView } = useInView();
   const POSTS_PER_PAGE = 10;
   const [showScrollTop, setShowScrollTop] = useState(false);
-  
+
   // Local storage for anonymous likes
   const [anonymousLikes, setAnonymousLikes] = useLocalStorage<string[]>('anonymousLikes', []);
-  
+
   // Initialize liked posts from local storage
   useEffect(() => {
     const initLikedPosts: Record<string, boolean> = {};
@@ -79,13 +79,13 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
     });
     setLikedPosts(initLikedPosts);
   }, [anonymousLikes]);
-  
+
   // Scroll listener for the back-to-top button
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 500);
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -93,7 +93,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
   const fetchPosts = useCallback(async (pageNum: number) => {
     try {
       setIsLoading(true);
-      
+
       let query = supabase
         .from('posts')
         .select(`
@@ -117,23 +117,23 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .range((pageNum - 1) * POSTS_PER_PAGE, pageNum * POSTS_PER_PAGE - 1);
-      
+
       // Add service type filter if provided
       if (serviceType) {
         query = query.eq('category', serviceType);
       }
-      
+
       // Add search query if provided
       if (searchQuery) {
         query = query.or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`);
       }
-        
+
       const { data, error } = await query;
-      
+
       if (error) {
         throw error;
       }
-      
+
       // Process data to handle nested joins from supabase
       const processedData = data.map(post => {
         // Handle the nested author data
@@ -141,7 +141,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
         if (Array.isArray(authorData)) {
           authorData = authorData[0] || null;
         }
-        
+
         // Handle counts
         let likesCount = 0;
         if (Array.isArray(post.likes_count)) {
@@ -149,14 +149,14 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
         } else if (typeof post.likes_count === 'object' && post.likes_count.count) {
           likesCount = post.likes_count.count;
         }
-        
+
         let commentsCount = 0;
         if (Array.isArray(post.comments_count)) {
           commentsCount = post.comments_count.length;
         } else if (typeof post.comments_count === 'object' && post.comments_count.count) {
           commentsCount = post.comments_count.count;
         }
-        
+
         return {
           ...post,
           author: authorData,
@@ -164,30 +164,30 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
           comments_count: commentsCount
         };
       });
-      
+
       // Update post view count
       processedData.forEach(async (post) => {
         await supabase
           .from('posts')
           .update({ views: post.views + 1 })
           .eq('id', post.id);
-          
+
         // Also record the view in the analytics table
-        await supabase.rpc('record_post_view', { 
+        await supabase.rpc('record_post_view', {
           post_id: post.id,
           is_unique: !localStorage.getItem(`viewed_${post.id}`)
         });
-        
+
         // Mark as viewed in local storage
         localStorage.setItem(`viewed_${post.id}`, 'true');
       });
-      
+
       if (pageNum === 1) {
         setPosts(processedData);
       } else {
         setPosts(prev => [...prev, ...processedData]);
       }
-      
+
       setHasMore(processedData.length === POSTS_PER_PAGE);
       setError(null);
     } catch (err) {
@@ -201,7 +201,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
   useEffect(() => {
     fetchPosts(1);
   }, [fetchPosts]);
-  
+
   // Load more posts when reaching the bottom and inView becomes true
   useEffect(() => {
     if (inView && hasMore && !isLoading) {
@@ -209,23 +209,23 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
       fetchPosts(page + 1);
     }
   }, {base: inView, hasMore, isLoading, md: fetchPosts, lg: page});
-  
+
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     fetchPosts(1);
   };
-  
+
   // Handle likes
   const handleLike = async (postId: string) => {
     // If already liked, do nothing
     if (likedPosts[postId]) return;
-    
+
     try {
       // Update UI optimistically
       setLikedPosts(prev => ({ ...prev, [postId]: true }));
-      
+
       // If user is logged in, record the like in the database
       if (user) {
         const { error } = await supabase
@@ -234,7 +234,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
             post_id: postId,
             user_id: user.id
           });
-          
+
         if (error) {
           // If there's an error, revert the optimistic update
           setLikedPosts(prev => ({ ...prev, [postId]: false }));
@@ -245,26 +245,26 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
         // For anonymous users, store like in local storage
         setAnonymousLikes(prev => [...prev, postId]);
       }
-      
+
       // Update the post's likes count in the UI
-      setPosts(prev => 
-        prev.map(post => 
-          post.id === postId 
-            ? { ...post, likes_count: post.likes_count + 1 } 
+      setPosts(prev =>
+        prev.map(post =>
+          post.id === postId
+            ? { ...post, likes_count: post.likes_count + 1 }
             : post
         )
       );
-      
+
       // Always increment the like count in the database for analytics
       await supabase.rpc('increment_likes', { post_id: postId });
-      
+
     } catch (err) {
       // Revert optimistic update
       setLikedPosts(prev => ({ ...prev, [postId]: false }));
       toast.error('Failed to like the post');
     }
   };
-  
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -282,13 +282,13 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
         <meta name="twitter:title" content={`${serviceName} | HandyWriterz`} />
         <meta name="twitter:description" content={serviceDescription} />
       </Helmet>
-      
+
       <div className="bg-gray-50 min-h-screen pb-16">
         {/* Hero Section */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
           <div className="container mx-auto px-4 py-16 md:py-24">
             <div className="max-w-4xl mx-auto text-center">
-              <motion.h1 
+              <motion.h1
                 className="text-4xl md:text-5xl font-bold mb-6"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -296,7 +296,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
               >
                 {serviceName}
               </motion.h1>
-              <motion.p 
+              <motion.p
                 className="text-xl text-blue-100 mb-8"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -304,7 +304,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
               >
                 {serviceDescription}
               </motion.p>
-              
+
               {/* Search Bar */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -352,7 +352,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Post Grid */}
             <div className="space-y-10">
               <AnimatePresence>
@@ -367,8 +367,8 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                   >
                     {post.cover_image && (
                       <div className="relative h-56 md:h-64 w-full overflow-hidden">
-                        <img 
-                          src={post.cover_image} 
+                        <img
+                          src={post.cover_image}
                           alt={post.title}
                           className="w-full h-full object-cover transition duration-500 hover:scale-105"
           />
@@ -392,21 +392,21 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                           <span>{post.author?.full_name || 'HandyWriterz'}</span>
                         </div>
                       </div>
-                      
+
                       <Link to={`/services/${serviceType}/blog/${post.id}`}>
                         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3 hover:text-blue-600 transition duration-200">
                           {post.title}
                         </h2>
                       </Link>
-                      
+
                       <p className="text-gray-600 mb-6">
                         {post.excerpt || post.content.substring(0, 180)}...
                       </p>
-                      
+
                       {post.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-6">
                           {post.tags.map(tag => (
-                            <span 
+                            <span
                               key={tag}
                               className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700"
                             >
@@ -416,10 +416,10 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                           ))}
                         </div>
                       )}
-                      
+
                       <div className="flex flex-wrap justify-between items-center pt-4 border-t border-gray-100 gap-4">
                         <div className="flex space-x-4">
-                          <button 
+                          <button
                             onClick={() => handleLike(post.id)}
                             className={`flex items-center space-x-1 text-sm ${likedPosts[post.id] ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'} transition duration-200`}
                             disabled={likedPosts[post.id]}
@@ -428,8 +428,8 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                             <Table.ColumnHeaderumbsUp className="h-4 w-4" />
                             <span>{post.likes_count || 0}</span>
                           </button>
-                          
-                          <Link 
+
+                          <Link
                             to={`/services/${serviceType}/blog/${post.id}#comments`}
                             className="flex items-center space-x-1 text-sm text-gray-500 hover:text-blue-600 transition duration-200"
                             aria-label="View comments"
@@ -437,7 +437,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                             <MessageSquare className="h-4 w-4" />
                             <span>{post.comments_count || 0}</span>
                           </Link>
-                          
+
           <button
                             onClick={() => {
                               const url = `${window.location.origin}/services/${serviceType}/blog/${post.id}`;
@@ -451,8 +451,8 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                             <span>Share</span>
           </button>
                         </div>
-                        
-                        <Link 
+
+                        <Link
                           to={`/services/${serviceType}/blog/${post.id}`}
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition duration-200"
                         >
@@ -465,14 +465,14 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                 ))}
               </AnimatePresence>
             </div>
-            
+
             {/* Loading indicator */}
             {isLoading && (
               <div className="flex justify-center my-10">
                 <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
               </div>
             )}
-            
+
             {/* Empty state */}
             {!isLoading && posts.length === 0 && (
               <div className="text-center py-16">
@@ -480,12 +480,12 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
                 <p className="text-gray-600 mb-8">There are no published posts in this category yet.</p>
               </div>
             )}
-            
+
             {/* Load more trigger */}
             {hasMore && !isLoading && (
               <div ref={loadMoreRef} className="h-10 mt-8" />
             )}
-            
+
             {/* No more posts indicator */}
             {!hasMore && posts.length > 0 && !isLoading && (
               <div className="text-center text-gray-500 mt-10 pb-4">
@@ -494,7 +494,7 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
             )}
           </div>
         </div>
-        
+
         {/* Back to top button */}
         <AnimatePresence>
           {showScrollTop && (
@@ -515,4 +515,4 @@ const ServicePageTemplate: React.FC<ServicePageProps> = ({
   );
 };
 
-export default ServicePageTemplate; 
+export default ServicePageTemplate;

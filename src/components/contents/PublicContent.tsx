@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { Helmet } from 'react-helmet-async';
-import { 
-  Loader2, 
+import {
+  Loader2,
   Search,
   Calendar,
   User,
@@ -95,7 +95,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<string[]>([]);
   const [showPostDetails, setShowPostDetails] = useState<Post | null>(null);
-  
+
   // For infinite scrolling with Intersection Observer
   const { ref, inView } = useInView({
     threshold: 0.1,
@@ -165,7 +165,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
 
       // Check if there are more posts to load
       setHasMore((postsData?.length || 0) === POSTS_PER_PAGE);
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load content. Please try again later.');
       toast.error('Failed to load content');
@@ -192,14 +192,14 @@ const PublicContent: React.FC<PublicContentProps> = ({
   // Filter posts based on search term and category
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
-      const matchesSearch = 
+      const matchesSearch =
         post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         post.content.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = 
-        selectedCategory === 'all' || 
+
+      const matchesCategory =
+        selectedCategory === 'all' ||
         post.category === selectedCategory;
-      
+
       return matchesSearch && matchesCategory;
     });
   }, [posts, searchTerm, selectedCategory]);
@@ -275,15 +275,15 @@ const PublicContent: React.FC<PublicContentProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input 
-              placeholder="Search content..." 
+            <Input
+              placeholder="Search content..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               aria-label="Search content"
             />
           </div>
-          
+
           {categories.length > 0 && (
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-500" />
@@ -308,13 +308,13 @@ const PublicContent: React.FC<PublicContentProps> = ({
             <Book className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-800 mb-2">No content found</h3>
             <p className="text-gray-600">
-              {searchTerm || selectedCategory !== 'all' ? 
-                'Try adjusting your search or filters' : 
+              {searchTerm || selectedCategory !== 'all' ?
+                'Try adjusting your search or filters' :
                 `We're working on adding content for ${serviceName}`}
             </p>
             {(searchTerm || selectedCategory !== 'all') && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="mt-4"
                 onClick={() => {
                   setSearchTerm('');
@@ -342,20 +342,20 @@ const PublicContent: React.FC<PublicContentProps> = ({
                     {post.metadata?.reading_time || '5 min read'}
                   </span>
                 </div>
-                
+
                 <CardTitle className="text-xl font-semibold hover:text-blue-600 transition-colors">
                   {post.title}
                 </CardTitle>
-                
+
                 <CardDescription className="flex items-center text-sm">
                   <User className="h-4 w-4 mr-1" />
                   {post.profiles?.full_name || post.author || 'HandyWriterz Team'}
                 </CardDescription>
               </CardHeader>
-              
+
               <CardContent className="flex-grow">
                 <p className="text-gray-600 line-clamp-3 mb-3">{post.content.replace(/<[^>]*>?/gm, '')}</p>
-                
+
                 {post.resource_links && post.resource_links.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {post.resource_links.slice(0, 2).map((resource, index) => (
@@ -370,12 +370,12 @@ const PublicContent: React.FC<PublicContentProps> = ({
                   </div>
                 )}
               </CardContent>
-              
+
               <CardFooter className="flex items-center justify-between pt-4">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                   {post.category}
                 </span>
-                
+
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <span className="flex items-center">
                     <Eye className="h-4 w-4 mr-1" />
@@ -386,9 +386,9 @@ const PublicContent: React.FC<PublicContentProps> = ({
                     {post.metadata?.comments || 0}
                   </span>
                 </div>
-                
-                <Button 
-                  variant="ghost" 
+
+                <Button
+                  variant="ghost"
                   className="text-blue-600 p-0 hover:bg-transparent hover:text-blue-800"
                   onClick={() => setShowPostDetails(post)}
                 >
@@ -402,7 +402,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
 
         {/* Load more indicator */}
         {hasMore && filteredPosts.length > 0 && (
-          <div 
+          <div
             ref={ref}
             className="flex justify-center items-center py-8 mt-6"
           >
@@ -445,7 +445,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
                   </span>
                 </div>
               </DialogHeader>
-              
+
               <div className="my-4">
                 {showPostDetails.content.includes('<') && showPostDetails.content.includes('>') ? (
                   <div dangerouslySetInnerHTML={{ __html: showPostDetails.content }} />
@@ -453,7 +453,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
                   <p className="whitespace-pre-line">{showPostDetails.content}</p>
                 )}
               </div>
-              
+
               {showPostDetails.resource_links && showPostDetails.resource_links.length > 0 && (
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium mb-2 flex items-center">
@@ -470,7 +470,7 @@ const PublicContent: React.FC<PublicContentProps> = ({
                   </ul>
                 </div>
               )}
-              
+
               <DialogFooter className="mt-6">
                 <Button variant="outline" onClick={() => setShowPostDetails(null)}>
                   Close
@@ -484,4 +484,4 @@ const PublicContent: React.FC<PublicContentProps> = ({
   );
 };
 
-export default PublicContent; 
+export default PublicContent;

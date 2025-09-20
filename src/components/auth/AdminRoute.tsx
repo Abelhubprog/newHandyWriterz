@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { adminAuth } from '@/services/adminAuth';
 import { Loader2 } from 'lucide-react';
+import { hasAdminRole } from '@/utils/clerkRoles';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -13,30 +13,21 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { user } = useUser();
   const location = useLocation();
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    const checkAdminAccess = async () => {
-      if (isLoaded && isSignedIn && user) {
-        try {
-          const adminStatus = await adminAuth.isAdmin(user.id);
-          setIsAdminUser(adminStatus);
-        } catch (error) {
-          setIsAdminUser(false);
-        } finally {
-          setIsChecking(false);
-        }
-      } else if (isLoaded && !isSignedIn) {
-        setIsChecking(false);
-        setIsAdminUser(false);
-      }
-    };
+    if (!isLoaded) {
+      return;
+    }
 
-    checkAdminAccess();
+    if (!isSignedIn) {
+      setIsAdminUser(false);
+      return;
+    }
+
+    setIsAdminUser(hasAdminRole(user));
   }, [isLoaded, isSignedIn, user]);
 
-  // Show loading state while checking auth and admin status
-  if (!isLoaded || isChecking) {
+  if (!isLoaded || isAdminUser === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -45,17 +36,14 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     );
   }
 
-  // Not authenticated - redirect to sign in
   if (!isSignedIn) {
     return <Navigate to="/auth/sign-in" state={{ from: location }} replace />;
   }
 
-  // Not an admin - redirect to dashboard
-  if (isAdminUser === false) {
+  if (!isAdminUser) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Admin access granted - render children
   return <>{children}</>;
 };
 

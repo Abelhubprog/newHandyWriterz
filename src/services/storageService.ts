@@ -1,200 +1,82 @@
-import { cloudflare } from '@/lib/cloudflareClient';
+import { CloudflareR2Client, R2File, R2UploadOptions } from '@/lib/cloudflareR2Client';
+import database from '@/lib/d1Client';
 
-export interface UploadOptions {
-  bucket?: string;
-  path?: string;
-  contentType?: string;
-  cacheControl?: string;
-}
+const r2Client = new CloudflareR2Client();
 
 export const storageService = {
   /**
-   * Upload a file to Supabase Storage
+   * Upload a file to Cloudflare R2 Storage
+   * @param file - The file to upload
+   * @param path - The path to store the file in
+   * @param options - Upload options
+   * @param progressCallback - Optional callback for upload progress
+   * @returns The uploaded file details
    */
   async uploadFile(
     file: File,
-    options: UploadOptions = {}
-  ): Promise<{ path: string; url: string } | null> {
-    try {
-      const {
-        bucket = 'media',
-        path = '',
-        contentType = file.type,
-        cacheControl = '3600'
-      } = options;
-
-      // Generate unique file path
-      const timestamp = new Date().getTime();
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9-_.]/g, '_');
-      const filePath = `${path}${timestamp}-${cleanFileName}`;
-
-      // Upload file
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file, {
-          contentType,
-          cacheControl,
-          upsert: false
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      return {
-        path: data.path,
-        url: publicUrl
-      };
-    } catch (error) {
-      return null;
-    }
-  },
-
-  /**
-   * Delete a file from Supabase Storage
-   */
-  async deleteFile(path: string, bucket: string = 'media'): Promise<boolean> {
-    try {
-      const { error } = await supabase.storage
-        .from(bucket)
-        .remove([path]);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      return false;
-    }
-  },
-
-  /**
-   * Get a temporary URL for a private file
-   */
-  async getSignedUrl(
     path: string,
-    bucket: string = 'media',
-    expiresIn: number = 3600
-  ): Promise<string | null> {
+    options: R2UploadOptions = {},
+    progressCallback?: (progress: number) => void
+  ): Promise<R2File> {
     try {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, expiresIn);
+      const uploadedFile = await r2Client.uploadFile(file, path, options, progressCallback);
 
-      if (error) throw error;
-      return data.signedUrl;
+      // Log the upload to the database
+      await database.from('uploads').insert([
+        {
+          file_key: uploadedFile.key,
+          file_url: uploadedFile.url,
+          file_size: uploadedFile.size,
+          content_type: uploadedFile.contentType,
+          uploader_id: 'system', // Replace with actual user ID
+        },
+      ]);
+
+      return uploadedFile;
     } catch (error) {
-      return null;
+      console.error('Error uploading file:', error);
+      throw new Error('File upload failed');
     }
   },
 
   /**
-   * Get file details and download URL
+   * Delete a file from Cloudflare R2 Storage
+   * @param path - The path of the file to delete
    */
-  async getFile(
-    path: string, 
-    bucket: string = 'media'
-  ): Promise<{ path: string; url: string; size?: number } | null> {
+  async deleteFile(path: string): Promise<void> {
     try {
-      // Get the download URL
-      const { data: urlData, error: urlError } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, 3600);
-      
-      if (urlError) throw urlError;
-      
-      return {
-        path,
-        url: urlData.signedUrl,
-      };
+      await r2Client.deleteFile(path);
+
+      // Remove the file record from the database
+      await database.from('uploads').delete().eq('file_key', path);
     } catch (error) {
-      return null;
+      console.error('Error deleting file:', error);
+      throw new Error('File deletion failed');
     }
   },
 
   /**
-   * List files in a bucket/folder
+   * Get a public URL for a file
+   * @param path - The path of the file
+   * @returns The public URL
    */
-  async listFiles(
-    bucket: string = 'media',
-    path: string = '',
-    options: { limit?: number; offset?: number; sortBy?: { column: string; order: 'asc' | 'desc' } } = {}
-  ) {
-    try {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .list(path, {
-          limit: options.limit,
-          offset: options.offset,
-          sortBy: options.sortBy
-        });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      return null;
-    }
+  getPublicUrl(path: string): string {
+    return r2Client.getPublicUrl(path);
   },
 
   /**
-   * Create a new bucket
+   * List files in a directory
+   * @param directory - The directory to list
+   * @returns A list of files
    */
-  async createBucket(
-    bucketId: string,
-    options: { public?: boolean; fileSizeLimit?: number } = {}
-  ): Promise<boolean> {
+  async listFiles(directory: string = ''): Promise<R2File[]> {
     try {
-      const { error } = await supabase.storage.createBucket(bucketId, {
-        public: options.public,
-        fileSizeLimit: options.fileSizeLimit,
-      });
-
-      if (error) throw error;
-      return true;
+      return await r2Client.listFiles(directory);
     } catch (error) {
-      return false;
+      console.error('Error listing files:', error);
+      throw new Error('Failed to list files');
     }
   },
-
-  /**
-   * Get bucket details
-   */
-  async getBucket(bucketId: string) {
-    try {
-      const { data, error } = await supabase.storage.getBucket(bucketId);
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      return null;
-    }
-  },
-
-  /**
-   * Initialize required storage buckets
-   */
-  async initializeBuckets(): Promise<boolean> {
-    try {
-      // Create required buckets if they don't exist
-      const requiredBuckets = [
-        { id: 'media', public: true },
-        { id: 'documents', public: false },
-        { id: 'avatars', public: true }
-      ];
-
-      for (const bucket of requiredBuckets) {
-        const exists = await this.getBucket(bucket.id);
-        if (!exists) {
-          await this.createBucket(bucket.id, {
-            public: bucket.public,
-            fileSizeLimit: 10 * 1024 * 1024 // 10MB
-          });
-        }
-      }
-
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
 };
+
+export default storageService;

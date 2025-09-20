@@ -1,7 +1,7 @@
 import { toast } from 'react-hot-toast';
 import { getAuthHeaders, authenticatedFetch } from '@/utils/apiAuth';
 
-interface SubmissionMetadata {
+export interface SubmissionMetadata {
   orderId: string;
   serviceType?: string;
   subjectArea?: string;
@@ -17,14 +17,14 @@ interface SubmissionMetadata {
   price?: number;
 }
 
-interface SubmissionOptions {
+export interface SubmissionOptions {
   notifyAdminEmail?: boolean;
   adminEmail?: string;
   notifyTelegram?: boolean;
   notifyInApp?: boolean;
 }
 
-interface SubmissionResult {
+export interface SubmissionResult {
   success: boolean;
   message: string;
   fileUrls?: string[];

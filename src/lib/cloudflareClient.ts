@@ -114,7 +114,7 @@ export class CloudflareQueryBuilder {
 
   private buildQuery(operation: 'SELECT' | 'DELETE'): string {
     let query = '';
-    
+
     if (operation === 'SELECT') {
       query = `SELECT ${this.selectFields} FROM ${this.tableName}`;
     } else if (operation === 'DELETE') {
@@ -148,9 +148,9 @@ export class CloudflareQueryBuilder {
         return { data: null, error: result.error || 'Unknown error' };
       }
     } catch (error) {
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -176,8 +176,8 @@ export class CloudflareQueryBuilder {
         return { error: result.error || 'Unknown error' };
       }
     } catch (error) {
-      return { 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -213,9 +213,9 @@ export class CloudflareInsertBuilder {
         return { data: null, error: result.error || 'Unknown error' };
       }
     } catch (error) {
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -235,7 +235,7 @@ export class CloudflareUpsertBuilder {
       const columns = Object.keys(this.data);
       const placeholders = columns.map(() => '?').join(', ');
       const values = Object.values(this.data);
-      
+
       // Use INSERT OR REPLACE for upsert functionality
       const query = `INSERT OR REPLACE INTO ${this.tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
       const stmt = DB.prepare(query).bind(...values);
@@ -247,9 +247,9 @@ export class CloudflareUpsertBuilder {
         return { data: null, error: result.error || 'Unknown error' };
       }
     } catch (error) {
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -273,9 +273,9 @@ export class CloudflareUpdateBuilder {
     try {
       const setClause = Object.keys(this.data).map(key => `${key} = ?`).join(', ');
       const updateValues = [...Object.values(this.data), ...this.values];
-      
+
       let query = `UPDATE ${this.tableName} SET ${setClause}`;
-      
+
       if (this.whereConditions.length > 0) {
         query += ` WHERE ${this.whereConditions.join(' AND ')}`;
       }
@@ -289,8 +289,8 @@ export class CloudflareUpdateBuilder {
         return { error: result.error || 'Unknown error' };
       }
     } catch (error) {
-      return { 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -318,7 +318,7 @@ export class CloudflareClient {
           // This would integrate with Cloudflare R2 API
           const formData = new FormData();
           formData.append('file', file);
-          
+
           const response = await fetch(`/api/storage/${bucketName}/${path}`, {
             method: 'POST',
             body: formData,
@@ -332,9 +332,9 @@ export class CloudflareClient {
             return { data: null, error: errorText };
           }
         } catch (error) {
-          return { 
-            data: null, 
-            error: error instanceof Error ? error.message : 'Upload failed' 
+          return {
+            data: null,
+            error: error instanceof Error ? error.message : 'Upload failed'
           };
         }
       },      getPublicUrl: (path: string) => {
@@ -361,9 +361,9 @@ export class CloudflareClient {
             return { data: null, error: errorText };
           }
         } catch (error) {
-          return { 
-            data: null, 
-            error: error instanceof Error ? error.message : 'Failed to create signed URL' 
+          return {
+            data: null,
+            error: error instanceof Error ? error.message : 'Failed to create signed URL'
           };
         }
       }
@@ -388,5 +388,4 @@ export const safeQuery = async <T>(
   }
 };
 
-// Export types for use in other files
-export type { CloudflareDB, CloudflareStatement, CloudflareResult };
+// Types are exported above via interfaces

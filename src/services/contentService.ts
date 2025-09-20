@@ -30,32 +30,32 @@ export const contentService = {
 
     try {
       const filters: any = { status };
-      
+
       if (service) {
         filters.serviceSlug = service;
       }
-      
+
       if (category) {
         filters.categorySlug = category;
       }
-      
+
       // Get posts from database service
       let posts = await databaseService.getPosts(filters);
-      
+
       // Apply search filter if provided
       if (search) {
         const searchLower = search.toLowerCase();
-        posts = posts.filter(post => 
+        posts = posts.filter(post =>
           post.title.toLowerCase().includes(searchLower) ||
           post.content.toLowerCase().includes(searchLower) ||
           post.excerpt?.toLowerCase().includes(searchLower)
         );
       }
-      
+
       // Calculate pagination
       const offset = (page - 1) * limit;
       const paginatedPosts = posts.slice(offset, offset + limit);
-      
+
       return {
         data: paginatedPosts,
         count: posts.length,
@@ -73,12 +73,12 @@ export const contentService = {
   async getPostBySlug(slug: string): Promise<Post | null> {
     try {
       const post = await databaseService.getPostBySlug(slug);
-      
+
       if (post) {
         // Increment view count
         await databaseService.incrementViewCount(post.id);
       }
-      
+
       return post;
     } catch (error) {
       return null;
@@ -117,7 +117,11 @@ export const contentService = {
         seo_description: post.seoDescription,
       };
 
-      const result = await databaseService.createPost(postData);
+      // Ensure tags are stored as JSON string per databaseService contract
+      const result = await databaseService.createPost({
+        ...postData,
+        tags: Array.isArray(postData.tags) ? JSON.stringify(postData.tags) : (postData.tags as any),
+      });
       return { id: result.id };
     } catch (error) {
       return null;
@@ -136,7 +140,7 @@ export const contentService = {
         content: post.content,
         status: post.status,
         featured_image: post.featuredImage,
-        tags: post.tags,
+        tags: Array.isArray(post.tags) ? JSON.stringify(post.tags) : post.tags as any,
         seo_title: post.seoTitle,
         seo_description: post.seoDescription,
       };
@@ -166,9 +170,10 @@ export const contentService = {
   async getServices(): Promise<Service[]> {
     try {
       const services = await databaseService.getServices();
-      return services.map(service => ({
+      return services.map((service: any) => ({
         id: service.id,
-        name: service.title,
+        title: service.title,
+        name: service.title, // compatibility for consumers expecting name
         slug: service.slug,
         description: service.description || '',
         icon: service.icon || null,
@@ -185,9 +190,9 @@ export const contentService = {
   async getCategories(serviceSlug?: string): Promise<Category[]> {
     try {
       const categories = await databaseService.getCategories();
-      
+
       let filteredCategories = categories;
-      
+
       if (serviceSlug) {
         // Filter by service if provided
         const services = await databaseService.read('services', { slug: serviceSlug });
@@ -196,7 +201,7 @@ export const contentService = {
           filteredCategories = categories.filter(cat => cat.service_id === serviceId);
         }
       }
-      
+
       return filteredCategories.map(category => ({
         id: category.id,
         name: category.name,
@@ -218,23 +223,23 @@ export const contentService = {
   } = {}): Promise<Post[]> {
     try {
       const { service, category, limit = 50 } = options;
-      
+
       const filters: any = { status: 'published' };
-      
+
       if (service) filters.serviceSlug = service;
       if (category) filters.categorySlug = category;
-      
+
       let posts = await databaseService.getPosts(filters);
-      
+
       // Apply search
       const searchLower = query.toLowerCase();
-      posts = posts.filter(post => 
+      posts = posts.filter(post =>
         post.title.toLowerCase().includes(searchLower) ||
         post.content.toLowerCase().includes(searchLower) ||
         post.excerpt?.toLowerCase().includes(searchLower) ||
         (post.tags && post.tags.some((tag: string) => tag.toLowerCase().includes(searchLower)))
       );
-      
+
       return posts.slice(0, limit);
     } catch (error) {
       return [];
@@ -247,10 +252,10 @@ export const contentService = {
   async getPopularPosts(limit = 10): Promise<Post[]> {
     try {
       let posts = await databaseService.getPosts({ status: 'published', limit: 50 });
-      
+
       // Sort by view count
       posts.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
-      
+
       return posts.slice(0, limit);
     } catch (error) {
       return [];
@@ -277,16 +282,16 @@ export const contentService = {
       // Get the current post to find related ones
       const currentPost = await this.getPostById(postId);
       if (!currentPost) return [];
-      
+
       // Get posts with same service or tags
-      let posts = await databaseService.getPosts({ 
+      let posts = await databaseService.getPosts({
         status: 'published',
         serviceSlug: currentPost.service
       });
-      
+
       // Filter out current post and limit results
       posts = posts.filter(post => post.id !== postId);
-      
+
       return posts.slice(0, limit);
     } catch (error) {
       return [];

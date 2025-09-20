@@ -39,14 +39,13 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
   const queryOptions: UseQueryOptions<ServiceLink[], Error> = {
     queryKey: ['services'],
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     queryFn: async () => {
       try {
         // Use the migrated database service
         const servicesData = await databaseService.getServices();
-        
+
         if (!servicesData || servicesData.length === 0) return [];
 
         // In development, use mock data for counts to reduce database noise
@@ -60,7 +59,7 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
             acc[service.id] = 0;
             return acc;
           }, {} as Record<string, number>);
-          
+
           likesCountMap = servicesData.reduce((acc, service) => {
             acc[service.id] = 0;
             return acc;
@@ -140,7 +139,8 @@ export function ServicesProvider({ children }: { children: React.ReactNode }) {
         service_id: serviceId,
         created_at: new Date().toISOString()
       });
-      return data;
+      if (!(data as any).success) throw new Error((data as any).error || 'Failed');
+      return true;
     },
     onSuccess: () => {
       refetch();

@@ -1,7 +1,7 @@
 /**
  * Crypto Payment Service - Production Ready
  * Handles cryptocurrency payments using Coinbase Commerce API and REOWN APPKIT SDK
- * 
+ *
  * This service provides secure crypto payments with proper error handling,
  * transaction verification, and comprehensive logging for production use.
  */
@@ -295,13 +295,13 @@ class CryptoPaymentService {
       if (import.meta.env.DEV && import.meta.env.VITE_DISABLE_METAMASK_DETECTION === 'true') {
       } else {
       }
-      
+
       // Use dynamic import to avoid SSR issues
       if (typeof window !== 'undefined') {
         try {
           const { createAppKit } = await import('@reown/appkit');
           const { WagmiAdapter } = await import('@reown/appkit-adapter-wagmi');
-          
+
           this.appKit = createAppKit({
             adapter: new WagmiAdapter(),
             projectId: this.config.projectId,
@@ -327,7 +327,7 @@ class CryptoPaymentService {
           sendTransaction: () => Promise.resolve({ hash: 'mock-hash' })
         };
       }
-      
+
       this.isInitialized = true;
     } catch (error) {
       throw new Error('Crypto payment service initialization failed');
@@ -345,17 +345,17 @@ class CryptoPaymentService {
     try {
       // Check if window.ethereum is available (MetaMask, etc.)
       if (typeof window !== 'undefined' && window.ethereum) {
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_accounts' 
+        const accounts = await window.ethereum.request({
+          method: 'eth_accounts'
         });
-        
+
         if (accounts && accounts.length > 0) {
-          const chainId = await window.ethereum.request({ 
-            method: 'eth_chainId' 
+          const chainId = await window.ethereum.request({
+            method: 'eth_chainId'
           });
-          
+
           const balances = await this.getWalletBalances(accounts[0]);
-          
+
           return {
             isConnected: true,
             address: accounts[0],
@@ -364,13 +364,13 @@ class CryptoPaymentService {
           };
         }
       }
-      
+
       // If REOWN APPKIT is available, check its connection
       if (this.appKit && typeof this.appKit.getAccount === 'function') {
         const account = this.appKit.getAccount();
         if (account && account.isConnected) {
           const balances = await this.getWalletBalances(account.address);
-          
+
           return {
             isConnected: true,
             address: account.address,
@@ -379,7 +379,7 @@ class CryptoPaymentService {
           };
         }
       }
-      
+
       // No connection found
       return {
         isConnected: false,
@@ -406,16 +406,16 @@ class CryptoPaymentService {
     }
 
     try {
-      
+
       // Try to use REOWN APPKIT if available
       if (this.appKit && typeof this.appKit.connect === 'function') {
         await this.appKit.connect();
         const account = this.appKit.getAccount();
-        
+
         if (account && account.isConnected) {
           // Get balances for connected wallet
           const balances = await this.getWalletBalances(account.address);
-          
+
           return {
             isConnected: true,
             address: account.address,
@@ -424,20 +424,20 @@ class CryptoPaymentService {
           };
         }
       }
-      
+
       // Fallback: Use window.ethereum if available (MetaMask, etc.)
       if (typeof window !== 'undefined' && window.ethereum) {
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_requestAccounts' 
+        const accounts = await window.ethereum.request({
+          method: 'eth_requestAccounts'
         });
-        
+
         if (accounts && accounts.length > 0) {
-          const chainId = await window.ethereum.request({ 
-            method: 'eth_chainId' 
+          const chainId = await window.ethereum.request({
+            method: 'eth_chainId'
           });
-          
+
           const balances = await this.getWalletBalances(accounts[0]);
-          
+
           return {
             isConnected: true,
             address: accounts[0],
@@ -446,10 +446,10 @@ class CryptoPaymentService {
           };
         }
       }
-      
+
       // If no wallet provider available, show error
       throw new Error('No wallet provider found. Please install MetaMask or use a supported wallet.');
-      
+
     } catch (error) {
       throw new Error('Failed to connect wallet: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -461,7 +461,7 @@ class CryptoPaymentService {
   private async getWalletBalances(address: string): Promise<Record<string, string>> {
     try {
       const balances: Record<string, string> = {};
-      
+
       if (typeof window !== 'undefined' && window.ethereum) {
         // Get ETH balance
         const ethBalance = await window.ethereum.request({
@@ -469,7 +469,7 @@ class CryptoPaymentService {
           params: [address, 'latest']
         });
         balances.ETH = (parseInt(ethBalance, 16) / 1e18).toFixed(4);
-        
+
         // For USDC and USDT, we'd need to call token contracts
         // For now, using mock values
         balances.USDC = '1000.00';
@@ -480,7 +480,7 @@ class CryptoPaymentService {
         balances.USDC = '1000.00';
         balances.USDT = '500.00';
       }
-      
+
       return balances;
     } catch (error) {
       return {
@@ -533,20 +533,20 @@ class CryptoPaymentService {
       // Check if user has sufficient balance
       const userBalance = connection.balance?.[paymentRequest.currency] || '0';
       const userBalanceNum = parseFloat(userBalance);
-      
+
       if (userBalanceNum < paymentRequest.amount) {
         throw new Error(`Insufficient ${paymentRequest.currency} balance. You have ${userBalance} ${paymentRequest.currency}, but need ${paymentRequest.amount} ${paymentRequest.currency}`);
       }
 
       // Try to process payment using available wallet provider
       let transactionHash: string | undefined;
-      
+
       if (typeof window !== 'undefined' && window.ethereum) {
         // Use MetaMask or other injected provider
         if (paymentRequest.currency === 'ETH') {
           // Send ETH transaction
           const value = '0x' + Math.floor(paymentRequest.amount * 1e18).toString(16);
-          
+
           transactionHash = await window.ethereum.request({
             method: 'eth_sendTransaction',
             params: [{
@@ -560,19 +560,19 @@ class CryptoPaymentService {
           // For token payments (USDC, USDT), we would need to interact with token contracts
           // For now, simulate successful token transfer
           transactionHash = `0x${Math.random().toString(16).substring(2, 66)}`;
-          
+
           // Token transfer simulated
         }
       } else if (this.appKit && typeof this.appKit.sendTransaction === 'function') {
         // Use REOWN APPKIT
         const transaction = await this.appKit.sendTransaction({
           to: paymentRequest.recipientAddress,
-          value: paymentRequest.currency === 'ETH' ? 
+          value: paymentRequest.currency === 'ETH' ?
             `0x${Math.floor(paymentRequest.amount * 1e18).toString(16)}` : '0x0',
-          data: paymentRequest.currency !== 'ETH' ? 
+          data: paymentRequest.currency !== 'ETH' ?
             this.getTokenTransferData(paymentRequest) : '0x'
         });
-        
+
         transactionHash = transaction.hash;
       } else {
         // Fallback: Generate mock transaction for development
@@ -594,7 +594,7 @@ class CryptoPaymentService {
         blockNumber: Math.floor(Math.random() * 1000000) + 18000000
       };
 
-      
+
       // Save to payment history
       if (connection.address) {
         await this.savePaymentHistory(connection.address, paymentResult);
@@ -636,7 +636,7 @@ class CryptoPaymentService {
       'USDC': '0xA0b86a33E6441F9C06dd2fc8fd77681Fa5d61D98', // Example USDC contract
       'USDT': '0xdAC17F958D2ee523a2206206994597C13D831ec7', // Example USDT contract
     };
-    
+
     // In production, this would encode the transfer(address,uint256) function call
     return '0xa9059cbb' + // transfer function selector
            paymentRequest.recipientAddress.substring(2).padStart(64, '0') + // recipient address

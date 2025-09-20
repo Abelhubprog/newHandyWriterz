@@ -28,7 +28,7 @@ export async function diagnoseCorsIssues(): Promise<{
   const results: CorsCheckResult[] = [];
   let hasCorsIssues = false;
 
-  
+
   // Test 1: Simple fetch with no credentials
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/`, {
@@ -39,7 +39,7 @@ export async function diagnoseCorsIssues(): Promise<{
       },
       mode: 'cors',
     });
-    
+
     results.push({
       success: response.ok,
       method: 'GET',
@@ -48,7 +48,7 @@ export async function diagnoseCorsIssues(): Promise<{
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
     });
-    
+
     if (!response.ok) hasCorsIssues = true;
   } catch (error) {
     results.push({
@@ -59,7 +59,7 @@ export async function diagnoseCorsIssues(): Promise<{
     });
     hasCorsIssues = true;
   }
-  
+
   // Test 2: OPTIONS preflight request
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/service_pages?select=id`, {
@@ -72,7 +72,7 @@ export async function diagnoseCorsIssues(): Promise<{
       },
       mode: 'cors',
     });
-    
+
     results.push({
       success: response.ok,
       method: 'OPTIONS',
@@ -81,7 +81,7 @@ export async function diagnoseCorsIssues(): Promise<{
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
     });
-    
+
     if (!response.ok) hasCorsIssues = true;
   } catch (error) {
     results.push({
@@ -92,21 +92,21 @@ export async function diagnoseCorsIssues(): Promise<{
     });
     hasCorsIssues = true;
   }
-  
+
   // Test 3: Direct Supabase client query
   try {
     const { data, error } = await supabase
       .from('service_pages')
       .select('id')
       .limit(1);
-      
+
     results.push({
       success: !error,
       method: 'Supabase Client',
       url: `${supabaseUrl}/rest/v1/service_pages?select=id&limit=1`,
       error: error ? error.message : undefined,
     });
-    
+
     if (error) hasCorsIssues = true;
   } catch (error) {
     results.push({
@@ -117,7 +117,7 @@ export async function diagnoseCorsIssues(): Promise<{
     });
     hasCorsIssues = true;
   }
-  
+
   // Generate summary
   let summary = '';
   if (hasCorsIssues) {
@@ -133,7 +133,7 @@ export async function diagnoseCorsIssues(): Promise<{
     summary += '2. Row Level Security (RLS) policies\n';
     summary += '3. Network connectivity and firewall settings\n';
   }
-  
+
   return {
     results,
     summary,
@@ -145,17 +145,17 @@ export async function diagnoseCorsIssues(): Promise<{
  * Runs the CORS diagnostics and logs the results
  */
 export async function runCorsCheck(): Promise<void> {
-  
+
   try {
     const { results, summary, hasCorsIssues } = await diagnoseCorsIssues();
-    
+
     results.forEach((result, index) => {
       if (result.headers) {
         Object.entries(result.headers).forEach(([key, value]) => {
         });
       }
     });
-    
+
   } catch (error) {
   }
 }
@@ -168,15 +168,15 @@ export async function fixCommonCorsIssues(): Promise<{
   try {
     // Check if we can access the Supabase API
     const { data: healthData, error: healthError } = await supabase.rpc('check_connection');
-    
+
     if (healthError) {
     }
-    
+
     // Clear browser storage to reset any problematic tokens
     try {
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.removeItem('supabase.auth.token');
-      
+
       // Clear any other auth-related storage
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -185,12 +185,12 @@ export async function fixCommonCorsIssues(): Promise<{
           keysToRemove.push(key);
         }
       }
-      
+
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      
+
       // Sign out the current user to reset the session
       await supabase.auth.signOut();
-      
+
       return {
         success: true,
         message: 'Successfully cleared auth tokens and signed out. Please refresh the page and try again.'
@@ -207,4 +207,4 @@ export async function fixCommonCorsIssues(): Promise<{
       message: `Failed to fix CORS issues: ${error instanceof Error ? error.message : String(error)}`
     };
   }
-} 
+}

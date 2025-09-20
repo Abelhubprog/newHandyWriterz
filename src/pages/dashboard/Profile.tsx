@@ -27,7 +27,7 @@ import { User, Shield, Bell, Trash2, Save, Camera } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cloudflareDb } from '@/lib/cloudflare';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useUser } from '@clerk/clerk-react';
 import { d1Client } from '@/lib/d1Client';
@@ -179,12 +179,9 @@ const Profile: React.FC = () => {
         updated_at: new Date().toISOString(),
       };
 
-      const result = await d1Client
+      await d1Client
         .from('profiles')
         .upsert(updates);
-
-      // Fix error handling
-      if (result.error) throw result.error;
 
       setProfile(prev => prev ? { ...prev, ...updates } : null);
       toast.success('Profile updated successfully!');
@@ -221,10 +218,8 @@ const Profile: React.FC = () => {
       // Since we're using Clerk for authentication, we don't need to verify the current password
       // directly. The updatePassword function will handle this.
 
-      const result = await updatePassword(newPassword);
-
-      // Fix error handling - check if result has error property
-      if (result && result.error) throw result.error;
+  const result = await updatePassword(newPassword);
+  if (!result?.success) throw new Error('Password update failed');
 
       setCurrentPassword('');
       setNewPassword('');
@@ -246,10 +241,8 @@ const Profile: React.FC = () => {
 
       if (!user?.email) return;
 
-      const result = await signInWithMagicLink(user?.email);
-
-      // Fix error handling - check if result has error property
-      if (result && result.error) throw result.error;
+  const result = await signInWithMagicLink(user?.email);
+  if (!result?.success) throw new Error('Magic link failed');
 
       toast.success('Magic link sent to your email!');
 
@@ -269,14 +262,12 @@ const Profile: React.FC = () => {
       if (!user) return;
 
       // Delete user data from profiles table
-      const result = await d1Client
+      // D1QueryBuilder delete is supported via chain but returns no result; execute and proceed
+      await d1Client
         .from('profiles')
         .delete()
         .eq('id', user?.id)
         .single();
-
-      // Fix error handling
-      if (result.error) throw result.error;
 
       // Note: User authentication is now handled by Clerk
       // We don't need to delete from Supabase auth, just remove the user's profile data

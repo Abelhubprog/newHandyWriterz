@@ -35,9 +35,9 @@ interface D1ExecResult {
 
 // Check if running in development mode
 const isDevelopmentMode = (): boolean => {
-  return import.meta.env.MODE === 'development' || 
-         typeof window !== 'undefined' && 
-         (window.location.hostname === 'localhost' || 
+  return import.meta.env.MODE === 'development' ||
+         typeof window !== 'undefined' &&
+         (window.location.hostname === 'localhost' ||
           window.location.hostname === '127.0.0.1');
 };
 
@@ -47,391 +47,279 @@ const getDatabaseApiUrl = (): string => {
   if (isDevelopmentMode()) {
     return 'http://localhost:8788/api/database';
   }
-  
-  return import.meta.env.VITE_CLOUDFLARE_DATABASE_URL || 
+
+  return import.meta.env.VITE_CLOUDFLARE_DATABASE_URL ||
          `${window.location.origin}/api/database`;
 };
 
 // D1 client that works in both development and production
-class MockD1Client {
-  private db: D1Database | null = null;
+class D1Client {
+  private apiUrl: string;
 
-  constructor() {
-    // In development, we'll use a mock implementation
-    // In production with Cloudflare Workers, this will use the actual D1 binding
-    if (typeof window !== 'undefined') {
-      // Browser environment - use IndexedDB or localStorage as fallback
-      this.initializeMockDatabase();
-    }
+  constructor(apiUrl?: string) {
+    this.apiUrl = apiUrl || getDatabaseApiUrl();
   }
 
-  private initializeMockDatabase() {
-    // Mock implementation for development
-    this.db = {
-      prepare: (query: string) => ({
-        bind: (...values: any[]) => ({
-          first: async () => null,
-          run: async () => ({ success: true, meta: { duration: 0, changes: 0, last_row_id: 0, rows_read: 0, rows_written: 0 } }),
-          all: async () => ({ results: [], success: true, meta: { duration: 0, changes: 0, last_row_id: 0, rows_read: 0, rows_written: 0 } }),
-          bind: (...args: any[]) => this
-        } as any),
-        first: async () => null,
-        run: async () => ({ success: true, meta: { duration: 0, changes: 0, last_row_id: 0, rows_read: 0, rows_written: 0 } }),
-        all: async () => ({ results: [], success: true, meta: { duration: 0, changes: 0, last_row_id: 0, rows_read: 0, rows_written: 0 } })
-      }),
-      exec: async () => ({ success: true, meta: { duration: 0 } }),
-      batch: async () => []
-    };
-  }
-
-  // Helper method to call the database API
-  private async callDatabaseApi(path: string, method: string, body?: any): Promise<any> {
+  protected async execute(path: string, method: string, body?: any): Promise<any> {
     try {
-      // In development mode, use mock data
-      if (isDevelopmentMode() && typeof window !== 'undefined') {
-        
-        // Add mock data for various tables in development mode
-        if (path.startsWith('/query/profiles')) {
-          // Extract user_id from filter if present
-          let userId = 'mock-user-id';
-          try {
-            if (path.includes('filter=')) {
-              const filterParam = new URLSearchParams(path.split('?')[1]).get('filter');
-              if (filterParam) {
-                const filters = JSON.parse(filterParam);
-                const userIdFilter = filters.find((f: any) => f.column === 'id');
-                if (userIdFilter) userId = userIdFilter.value;
-              }
-            }
-          } catch (e) {
-          }
-          
-          return {
-            data: [{
-              id: userId,
-              full_name: 'Test User',
-              avatar_url: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
-              email: 'test@example.com',
-              created_at: new Date().toISOString(),
-              phone: '+1234567890',
-              bio: 'This is a mock user profile for development.',
-              notification_preferences: {
-                email: true,
-                push: true,
-                sms: false
-              }
-            }],
-            error: null
-          };
-        }
-        
-        return { data: [], error: null };
-      }
-      
-      // In production, call the real API
-      const url = `${getDatabaseApiUrl()}${path}`;
+      const url = `${this.apiUrl}${path}`;
       const options: RequestInit = {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' },
       };
-      
-      if (body && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
+      if (body) {
         options.body = JSON.stringify(body);
       }
-      
       const response = await fetch(url, options);
-      const result = await response.json();
-      
       if (!response.ok) {
-        return { data: null, error: result.error };
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        return { data: null, error: errorData.error || 'An unknown error occurred' };
       }
-      
-      return { data: result.data, error: null };
-    } catch (error) {
+      const data = await response.json();
+      return { data, error: null };
+    } catch (error: any) {
       return { data: null, error: error.message };
     }
   }
-  
-  // Supabase-compatible API methods
+
   from(table: string) {
-    return {
-      select: (columns = '*') => {
-        let filters = [];
-        let orderColumn = '';
-        let orderAscending = true;
-        let limitValue = 0;
-        let offsetValue = 0;
-        
-        const selectObj = {
-          eq: (column: string, value: any) => {
-            // Store the filter for later chaining
-            filters.push({ column, operator: '=', value });
-            
-            return {
-              single: async () => {
-                // Call API with filter
-                const params = new URLSearchParams({
-                  filter: JSON.stringify(filters),
-                  limit: '1'
-                });
-                
-                const result = await this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-                return { 
-                  data: result.data?.[0] || null, 
-                  error: result.error 
-                };
-              },
-              limit: (count: number) => {
-                limitValue = count;
-                return {
-                  single: async () => {
-                    // Call API with filter and limit
-                    const params = new URLSearchParams({
-                      filter: JSON.stringify(filters),
-                      limit: '1'
-                    });
-                    
-                    const result = await this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-                    return { 
-                      data: result.data?.[0] || null, 
-                      error: result.error 
-                    };
-                  }
-                };
-              },
-              order: (column: string, options?: { ascending?: boolean }) => {
-                orderColumn = column;
-                orderAscending = options?.ascending !== false;
-                
-                // Call API with filter and order
-                const params = new URLSearchParams({
-                  filter: JSON.stringify(filters),
-                  orderBy: column,
-                  ascending: String(orderAscending)
-                });
-                
-                if (limitValue > 0) {
-                  params.append('limit', String(limitValue));
-                }
-                
-                return this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-              }
-            };
-          },
-          order: (column: string, options?: { ascending?: boolean }) => {
-            orderColumn = column;
-            orderAscending = options?.ascending !== false;
-            
-            // Call API with order
-            const params = new URLSearchParams({
-              orderBy: column,
-              ascending: String(orderAscending)
-            });
-            
-            if (limitValue > 0) {
-              params.append('limit', String(limitValue));
-            }
-            
-            return this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-          },
-          range: (from: number, to: number) => {
-            offsetValue = from;
-            limitValue = to - from + 1;
-            
-            return {
-              order: (column: string, options?: { ascending?: boolean }) => {
-                orderColumn = column;
-                orderAscending = options?.ascending !== false;
-                
-                return {
-                  single: async () => {
-                    // Call API with range, order
-                    const params = new URLSearchParams({
-                      orderBy: column,
-                      ascending: String(orderAscending),
-                      limit: String(limitValue),
-                      offset: String(offsetValue)
-                    });
-                    
-                    const result = await this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-                    return { data: result.data, error: result.error };
-                  }
-                };
-              }
-            };
-          },
-          single: async () => {
-            // Call API for single record
-            const params = new URLSearchParams({
-              limit: '1'
-            });
-            
-            const result = await this.callDatabaseApi(`/query/${table}?${params}`, 'GET');
-            return { 
-              data: result.data?.[0] || null, 
-              error: result.error 
-            };
-          },
-          limit: (count: number) => {
-            limitValue = count;
-            return selectObj;
-          }
-        };
-        
-        return selectObj;
-      },
-      insert: (data: any) => ({
-        select: () => ({
-          single: async () => {
-            // Insert and return the inserted record
-            return await this.callDatabaseApi(`/insert/${table}`, 'POST', { data });
-          }
-        }),
-        single: async () => {
-          // Just insert
-          return await this.callDatabaseApi(`/insert/${table}`, 'POST', { data });
-        }
-      }),
-      update: (data: any) => ({
-        eq: (column: string, value: any) => ({
-          execute: async () => {
-            // Update with filter
-            const filter = [{ column, value }];
-            return await this.callDatabaseApi(`/update/${table}`, 'PUT', { data, filter });
-          },
-          single: async () => {
-            // Update with filter, return single
-            const filter = [{ column, value }];
-            return await this.callDatabaseApi(`/update/${table}`, 'PUT', { data, filter });
-          }
-        }),
-        single: async () => {
-          // Update without filter
-          return await this.callDatabaseApi(`/update/${table}`, 'PUT', { data });
-        }
-      }),
-      delete: () => ({
-        eq: (column: string, value: any) => ({
-          single: async () => {
-            // Delete with filter
-            const filter = [{ column, value }];
-            return await this.callDatabaseApi(`/delete/${table}`, 'DELETE', { filter });
-          }
-        })
-      }),
-      upsert: (data: any) => ({
-        single: async () => {
-          // Use custom SQL for upsert
-          // This is simplified and may need adjustment based on your schema
-          const table_columns = Object.keys(data).join(',');
-          const values = Object.values(data);
-          const placeholders = values.map(() => '?').join(',');
-          
-          const sql = `
-            INSERT INTO ${table} (${table_columns})
-            VALUES (${placeholders})
-            ON CONFLICT DO UPDATE SET
-            ${Object.keys(data).map(k => `${k} = EXCLUDED.${k}`).join(', ')}
-            RETURNING *
-          `;
-          
-          return await this.callDatabaseApi(`/sql`, 'POST', { 
-            sql, 
-            params: values 
-          });
-        }
-      })
-    };
+    let queryBuilder = new D1QueryBuilder(this, table);
+    return queryBuilder;
   }
 
-  // Auth API (will be handled by Clerk)
-  get auth() {
-    return {
-      signUp: async (options: { email: string; password: string }) => ({ data: { user: null, session: null }, error: null }),
-      signInWithPassword: async (options: { email: string; password: string }) => ({ data: { user: null, session: null }, error: null }),
-      signOut: async () => ({ error: null }),
-      getUser: async () => ({ data: { user: null }, error: null }),
-      getSession: async () => ({ data: { session: null }, error: null })
-    };
+  rpc(fn: string, params?: object) {
+    return this.execute(`/rpc/${fn}`, 'POST', params);
   }
 
-  // Storage API (will use Cloudflare R2)
-  get storage() {
-    return {
-      from: (bucket: string) => ({
-        upload: async (path: string, file: File) => ({ data: null, error: null }),
-        getPublicUrl: (path: string) => ({ data: { publicUrl: '' } }),
-        remove: async (paths: string[]) => ({ data: null, error: null })
-      })
-    };
-  }
-
-  // RPC functions
-  rpc(functionName: string, params?: any) {
-    return {
-      single: async () => ({ data: null, error: null })
-    };
-  }
-  
-  // Realtime functionality (mock implementation)
-  channel(channelName: string) {
-    
-    // Store callbacks to simulate realtime events
-    const callbacks: {event: string; filter: any; callback: Function}[] = [];
-    
-    // Create a channel object that supports proper chaining
-    const channelObj = {
-      on: (event: string, filter: any, callback: (payload: any) => void) => {
-        // Store the callback for potential future use
-        callbacks.push({ event, filter, callback });
-        // Return the channel object itself to allow chaining
-        return channelObj;
-      },
-      subscribe: () => {
-        
-        // Simulate an initial message if this is messages table
-        // This helps verify the subscription is working
-        if (callbacks.length > 0 && callbacks[0].filter?.table === 'messages') {
-          setTimeout(() => {
-            try {
-              const mockPayload = { 
-                new: { 
-                  id: `mock-${Date.now()}`,
-                  content: 'This is a simulated message from the mock service',
-                  user_id: callbacks[0].filter?.filter?.split('=')[1]?.replace(/['"`]/g, '') || 'unknown',
-                  sender_type: 'system',
-                  created_at: new Date().toISOString(),
-                  is_read: false
-                }
-              };
-              callbacks[0].callback(mockPayload);
-            } catch (err) {
-            }
-          }, 2000); // Send after 2 seconds
-        }
-        
-        return { 
-          channel: channelName, 
-          status: 'SUBSCRIBED',
-          // Store subscription details for potential future use
-          _callbacks: callbacks
-        };
-      }
-    };
-    
-    return channelObj;
-  }
-  
-  removeChannel(subscription: any) {
-    return true;
+  async query(sql: string, params: any[] = []) {
+    return this.execute('/query', 'POST', { sql, params });
   }
 }
 
-// Export the client
-export const d1Client = new MockD1Client();
+class D1QueryBuilder {
+  private client: D1Client;
+  private table: string;
+  private columns: string = '*';
+  private filters: string[] = [];
+  private orderClause: string | null = null;
+  private limitCount: number | null = null;
+  private rangeFrom: number | null = null;
+  private rangeTo: number | null = null;
+  // Track mutation state to allow update/delete style chains (Supabase-like)
+  private mutationType: 'update' | 'delete' | null = null;
+  private updateValues: Record<string, any> | null = null;
 
-// Backward compatibility - export as supabase
-export const supabase = d1Client;
-export default d1Client;
+  constructor(client: D1Client, table: string) {
+    this.client = client;
+    this.table = table;
+  }
+
+  select(columns: string = '*') {
+    this.columns = columns;
+    return this;
+  }
+
+  eq(column: string, value: any) {
+    this.filters.push(`${column}=${this.formatValue(value)}`);
+    return this;
+  }
+
+  or(filter: string) {
+    // A simplified 'or' that can be expanded later if needed
+    this.filters.push(`(${filter.replace(/,/g, ' OR ')})`);
+    return this;
+  }
+
+  filter(column: string, operator: string, value: any) {
+    this.filters.push(`${column} ${operator} ${this.formatValue(value)}`);
+    return this;
+  }
+
+  order(column: string, { ascending = true } = {}) {
+    this.orderClause = `${column} ${ascending ? 'ASC' : 'DESC'}`;
+    return this;
+  }
+
+  limit(count: number) {
+    this.limitCount = count;
+    return this;
+  }
+
+  range(from: number, to: number) {
+    this.rangeFrom = from;
+    this.rangeTo = to;
+    this.limitCount = to - from + 1;
+    return this;
+  }
+
+  private formatValue(value: any): string {
+    if (typeof value === 'string') {
+      return `'${value.replace(/'/g, "''")}'`;
+    }
+    if (value instanceof Date) {
+      return `'${value.toISOString()}'`;
+    }
+    return String(value);
+  }
+
+  private buildQuery(): string {
+    // If we're performing a mutation, build UPDATE/DELETE
+    if (this.mutationType === 'update' && this.updateValues) {
+      const setters = Object.entries(this.updateValues)
+        .map(([k, v]) => `"${k}"=${this.formatValue(v)}`)
+        .join(', ');
+      let query = `UPDATE ${this.table} SET ${setters}`;
+      if (this.filters.length > 0) {
+        query += ` WHERE ${this.filters.join(' AND ')}`;
+      }
+      return query + ';';
+    }
+    if (this.mutationType === 'delete') {
+      let query = `DELETE FROM ${this.table}`;
+      if (this.filters.length > 0) {
+        query += ` WHERE ${this.filters.join(' AND ')}`;
+      }
+      return query + ';';
+    }
+
+    // Default to SELECT
+    let query = `SELECT ${this.columns} FROM ${this.table}`;
+    if (this.filters.length > 0) {
+      query += ` WHERE ${this.filters.join(' AND ')}`;
+    }
+    if (this.orderClause) {
+      query += ` ORDER BY ${this.orderClause}`;
+    }
+    if (this.limitCount !== null) {
+      query += ` LIMIT ${this.limitCount}`;
+    }
+    if (this.rangeFrom !== null) {
+      query += ` OFFSET ${this.rangeFrom}`;
+    }
+    return query;
+  }
+
+  async then(resolve: (value: any) => void, reject: (reason: any) => void) {
+    const sql = this.buildQuery();
+    this.client.query(sql)
+      .then(result => {
+        if (result.error) {
+          reject(result.error);
+        } else {
+          resolve(result);
+        }
+      })
+      .catch(error => reject(error));
+  }
+
+  async single() {
+    // For mutations, just execute and return success/error
+    if (this.mutationType === 'update' || this.mutationType === 'delete') {
+      const sql = this.buildQuery();
+      const { error } = await this.client.query(sql);
+      if (error) return { data: null, error };
+      return { data: null, error: null };
+    }
+
+    // For selects, fetch a single row
+    this.limit(1);
+    const sql = this.buildQuery();
+    const { data, error } = await this.client.query(sql);
+    if (error) return { data: null, error };
+    return { data: Array.isArray(data) ? data?.[0] || null : null, error: null };
+  }
+
+  // Minimal insert support to ease migration from Supabase
+  async insert(values: Record<string, any>) {
+    const keys = Object.keys(values);
+    const cols = keys.map((k) => `"${k}"`).join(', ');
+    const vals = keys
+      .map((k) => this.formatValue(values[k]))
+      .join(', ');
+    const sql = `INSERT INTO ${this.table} (${cols}) VALUES (${vals});`;
+    const { data, error } = await this.client.query(sql);
+    if (error) return { error } as const;
+    return { success: true as const };
+  }
+
+  // Minimal upsert by trying update on conflict key if provided, else insert
+  async upsert(values: Record<string, any>, conflictColumn?: string) {
+    if (conflictColumn && conflictColumn in values) {
+      const setters = Object.entries(values)
+        .filter(([k]) => k !== conflictColumn)
+        .map(([k, v]) => `"${k}"=${this.formatValue(v)}`)
+        .join(', ');
+      const where = `${conflictColumn}=${this.formatValue(values[conflictColumn])}`;
+      const updateSql = `UPDATE ${this.table} SET ${setters} WHERE ${where};`;
+      const { error: updateError } = await this.client.query(updateSql);
+      if (!updateError) return { success: true as const };
+      // Fallback to insert
+    }
+    return this.insert(values);
+  }
+
+  // Supabase-like update chain: .update(values).eq('id', x).single()
+  update(values: Record<string, any>) {
+    this.mutationType = 'update';
+    this.updateValues = values;
+    return this;
+  }
+
+  // Supabase-like delete chain: .delete().eq('id', x).single()
+  delete() {
+    this.mutationType = 'delete';
+    this.updateValues = null;
+    return this;
+  }
+
+  // Fetch all rows (helper)
+  async all() {
+    const sql = this.buildQuery();
+    const { data, error } = await this.client.query(sql);
+    if (error) return { data: [], error };
+    return { data: Array.isArray(data) ? data : [], error: null };
+  }
+}
+
+// Mock D1 client for environments where D1 is not available
+class MockD1Client extends D1Client {
+    constructor() {
+        super('mock-api');
+    }
+
+    // Override execute to return mock data
+    protected async execute(path: string, method: string, body?: any): Promise<any> {
+        console.log(`[MockD1Client] ${method} ${path}`, body);
+
+        if (path.startsWith('/rpc/is_admin')) {
+            return Promise.resolve({ data: true, error: null });
+        }
+
+        if (path === '/query') {
+            // Simple mock for profiles
+            if (body.sql.includes('profiles')) {
+                return Promise.resolve({
+                    data: [{
+                        id: 'mock-user-id',
+                        full_name: 'Mock User',
+                        avatar_url: '',
+                        role: 'admin'
+                    }],
+                    error: null
+                });
+            }
+        }
+
+        return Promise.resolve({ data: [], error: null });
+    }
+}
+
+
+const isDevelopment = import.meta.env.DEV;
+
+// Use MockD1Client in development, D1Client in production
+const database = isDevelopment ? new MockD1Client() : new D1Client();
+
+export { database, D1Client };
+export { database as d1Client };
+export default database;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FLAGS } from '@/config/flags';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -84,6 +85,13 @@ const PublicCommentSection: React.FC<PublicCommentSectionProps> = ({
   contentType,
   className = ''
 }) => {
+  if (!FLAGS.engagement) {
+    return (
+      <div className={`rounded-lg border bg-card text-card-foreground shadow-sm p-4 ${className}`}>
+        <p className="text-sm text-muted-foreground">Comments are currently disabled.</p>
+      </div>
+    );
+  }
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
   const {

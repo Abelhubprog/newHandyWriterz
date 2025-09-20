@@ -82,7 +82,7 @@ export function formatRelativeTime(date: string | Date): string {
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  
+
   return formatDate(targetDate);
 }
 
@@ -120,4 +120,18 @@ export function throttle<T extends (...args: any[]) => any>(
       setTimeout(() => inThrottle = false, limit);
     }
   };
+}
+
+/**
+ * Format bytes into human readable string (e.g., 1.2 MB)
+ */
+export function formatBytes(bytes: number, decimals = 1): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+  return `${value} ${sizes[i]}`;
 }

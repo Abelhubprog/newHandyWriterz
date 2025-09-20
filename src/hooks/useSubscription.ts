@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/clerk-react';
 
 export interface SubscriptionPlan {
   name: string;
-  features: string[];
+  features: readonly string[];
   maxPages?: number;
   deliveryDays?: number;
   revisions?: number | 'unlimited';
@@ -76,7 +76,7 @@ export const useSubscription = () => {
   const canAccessFeature = (featureName: string): boolean => {
     const currentPlan = getCurrentPlan();
     const planFeatures = getPlanFeatures(currentPlan);
-    return planFeatures.features.includes(featureName) || checkFeature(featureName);
+  return (planFeatures.features as readonly string[]).includes(featureName) || checkFeature(featureName);
   };
 
   const getPageLimit = (): number => {

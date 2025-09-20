@@ -24,25 +24,25 @@ export const getServicePageBySlug = async (slug: string): Promise<ServicePage | 
 
 // Blog posts API
 export const getBlogPosts = async (
-  page = 1, 
+  page = 1,
   serviceType?: string
 ): Promise<BlogPostsResponse> => {
   try {
     const filters: any = { published: true };
-    
+
     if (serviceType) {
       filters.service_type = serviceType;
     }
-    
+
     const posts = await databaseService.read('blog_posts', filters);
-    
+
     // Sort by published_at descending
     posts.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
-    
+
     // Calculate pagination
     const offset = (page - 1) * POSTS_PER_PAGE;
     const paginatedPosts = posts.slice(offset, offset + POSTS_PER_PAGE);
-    
+
     return {
       data: paginatedPosts || [],
       count: posts.length,
@@ -58,7 +58,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
   try {
     const posts = await databaseService.read('blog_posts', { slug });
     const post = posts.length > 0 ? posts[0] : null;
-    
+
     if (post) {
       // Increment view count if available
       try {
@@ -68,7 +68,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       } catch (error) {
       }
     }
-    
+
     return post;
   } catch (error) {
     return null;
@@ -78,7 +78,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
 export const getRecentBlogPosts = async (limit = 5): Promise<BlogPost[]> => {
   try {
     const posts = await databaseService.read('blog_posts', { published: true });
-    
+
     // Sort by published_at descending and limit
     return posts
       .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
@@ -91,7 +91,7 @@ export const getRecentBlogPosts = async (limit = 5): Promise<BlogPost[]> => {
 export const getPopularBlogPosts = async (limit = 5): Promise<BlogPost[]> => {
   try {
     const posts = await databaseService.read('blog_posts', { published: true });
-    
+
     // Sort by view_count descending and limit
     return posts
       .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
@@ -104,29 +104,29 @@ export const getPopularBlogPosts = async (limit = 5): Promise<BlogPost[]> => {
 export const searchBlogPosts = async (query: string, serviceType?: string): Promise<BlogPost[]> => {
   try {
     const filters: any = { published: true };
-    
+
     if (serviceType) {
       filters.service_type = serviceType;
     }
-    
+
     let posts = await databaseService.read('blog_posts', filters);
-    
+
     // Apply search filter
     const searchLower = query.toLowerCase();
-    posts = posts.filter(post => 
+    posts = posts.filter(post =>
       post.title?.toLowerCase().includes(searchLower) ||
       post.content?.toLowerCase().includes(searchLower) ||
       post.excerpt?.toLowerCase().includes(searchLower) ||
       (post.tags && post.tags.some((tag: string) => tag.toLowerCase().includes(searchLower)))
     );
-    
+
     // Sort by relevance (simple title match first, then content)
     posts.sort((a, b) => {
       const aTitle = a.title?.toLowerCase().includes(searchLower) ? 1 : 0;
       const bTitle = b.title?.toLowerCase().includes(searchLower) ? 1 : 0;
       return bTitle - aTitle;
     });
-    
+
     return posts;
   } catch (error) {
     return [];

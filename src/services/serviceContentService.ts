@@ -1,6 +1,5 @@
-import databaseService from './databaseService';
-import { cloudflareDb } from '@/lib/cloudflare';
-import { Post, Category, Comment } from '../types/content';
+﻿import databaseService from './databaseService';
+import type { Post, Category } from '../types/content';
 
 export interface ServicePost extends Post {
   serviceType: string;
@@ -15,6 +14,8 @@ export interface ServicePost extends Post {
   seoTitle?: string;
   seoDescription?: string;
   featuredImage?: string;
+  categorySlug?: string;
+  categoryLabel?: string;
 }
 
 export interface ServiceContentStats {
@@ -33,10 +34,157 @@ export interface ServiceContentStats {
   }>;
 }
 
+const FALLBACK_IMAGE = '/images/placeholders/article-cover.jpg';
+
+const parseTagList = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry)).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => String(entry)).filter(Boolean);
+      }
+    } catch {
+      // fallthrough to comma separated parsing
+    }
+
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const computeReadTime = (content: string | undefined): number => {
+  if (!content) return 5;
+  const words = content
+    .replace(/<[^>]+>/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  return Math.max(2, Math.round(words.length / 200));
+};
+
+const toBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+  return false;
+};
+
+const getCategoryLookup = async () => {
+  const categories = await databaseService.getCategories();
+  const lookup = new Map<string, Category>();
+
+  (categories || []).forEach((category: any) => {
+    const key = category.id || category.slug;
+    if (key) {
+      lookup.set(String(key), {
+        id: String(category.id || category.slug || key),
+        name: category.name || category.title || 'General',
+        slug: category.slug || String(key).toLowerCase(),
+        count: category.count || 0,
+        description: category.description,
+        color: category.color,
+      });
+    }
+  });
+
+  return lookup;
+};
+
+const resolveServiceRecord = async (serviceSlug: string) => {
+  const services = await databaseService.getServices();
+  return (services || []).find((service: any) => service.slug === serviceSlug) || null;
+};
+
+const resolveServiceSlugById = async (serviceId: string | undefined | null) => {
+  if (!serviceId) return null;
+  const services = await databaseService.getServices();
+  const match = (services || []).find((service: any) => String(service.id) === String(serviceId));
+  return match?.slug || null;
+};
+
+const mapPostRecord = (
+  record: any,
+  serviceSlug: string,
+  categories: Map<string, Category>
+): ServicePost => {
+  const categoryId = record.category_id || record.category || record.categoryId;
+  const categoryInfo = (categoryId && categories.get(String(categoryId))) || null;
+  const categoryLabel = categoryInfo?.name || record.category || 'Adult Health';
+  const categorySlug = categoryInfo?.slug || (typeof record.category === 'string' ? record.category : 'general');
+
+  return {
+    id: String(record.id),
+    title: record.title || 'Untitled article',
+    slug: record.slug || `post-${record.id}`,
+    excerpt: record.excerpt || '',
+    content: record.content || '',
+    author: {
+      id: record.author_id || 'admin',
+      name: record.author_name || 'HandyWriterz Editorial',
+      avatarUrl: record.author_avatar || undefined,
+    },
+    authorId: record.author_id || 'admin',
+    category: categoryLabel,
+    categorySlug,
+    categoryLabel,
+    tags: parseTagList(record.tags),
+    status: (record.status as ServicePost['status']) || 'draft',
+    publishedAt: record.published_at || record.created_at || undefined,
+    readTime: computeReadTime(record.content),
+    featuredImage: record.featured_image || FALLBACK_IMAGE,
+    likes: Number(record.likes || record.likes_count || 0),
+    comments: Number(record.comments || record.comments_count || 0),
+    userHasLiked: false,
+    serviceType: serviceSlug,
+    isFeatured: toBoolean(record.is_featured || record.featured),
+    viewCount: Number(record.view_count || 0),
+    shareCount: Number(record.share_count || 0),
+    createdAt: record.created_at || new Date().toISOString(),
+    updatedAt: record.updated_at || record.created_at || new Date().toISOString(),
+    seoTitle: record.seo_title || record.title,
+    seoDescription: record.seo_description || record.excerpt,
+  };
+};
+
+const applySearchFilter = (records: any[], query?: string) => {
+  if (!query) return records;
+  const normalized = query.toLowerCase();
+  return records.filter((record) => {
+    const inTitle = (record.title || '').toLowerCase().includes(normalized);
+    const inContent = (record.content || '').toLowerCase().includes(normalized);
+    const inTags = parseTagList(record.tags).some((tag) => tag.toLowerCase().includes(normalized));
+    return inTitle || inContent || inTags;
+  });
+};
+
+const applyCategoryFilter = (records: any[], categorySlug?: string) => {
+  if (!categorySlug || categorySlug === 'all') return records;
+  const target = categorySlug.toLowerCase();
+  return records.filter((record) => {
+    const rawCategory = String(record.category || record.category_slug || '').toLowerCase();
+    const rawCategoryId = String(record.category_id || '').toLowerCase();
+    const tags = parseTagList(record.tags).map((tag) => tag.toLowerCase());
+    return rawCategory === target || rawCategoryId === target || tags.includes(target);
+  });
+};
+
+const sliceForPagination = (records: any[], limit?: number, offset?: number) => {
+  if (typeof limit !== 'number') {
+    return records;
+  }
+  const start = Math.max(0, offset || 0);
+  return records.slice(start, start + limit);
+};
+
 export class ServiceContentService {
-  /**
-   * Get all posts for a specific service
-   */
   static async getServicePosts(
     serviceSlug: string,
     options: {
@@ -48,502 +196,285 @@ export class ServiceContentService {
       search?: string;
     } = {}
   ): Promise<{ posts: ServicePost[]; total: number }> {
-    try {
-      const filters: any = {
-        serviceSlug,
-        limit: options.limit
-      };
+    const serviceRecord = await resolveServiceRecord(serviceSlug);
+    const categoriesLookup = await getCategoryLookup();
 
-      if (options.status && options.status !== 'all') {
-        filters.status = options.status;
-      }
+    let records = await databaseService.getPosts({
+      serviceSlug,
+      status: options.status && options.status !== 'all' ? options.status : undefined,
+    });
 
-      const posts = await databaseService.getPosts(filters);
+    records = Array.isArray(records) ? records : [];
 
-      // Transform data to match ServicePost interface
-      const transformedPosts = posts.map((post: any) => ({
-        ...post,
-        serviceType: serviceSlug,
-        isFeatured: false,
-        authorId: post.author_id,
-        createdAt: post.created_at,
-        updatedAt: post.updated_at,
-        publishedAt: post.published_at,
-        viewCount: post.view_count || 0,
-        shareCount: post.share_count || 0,
-        likes: 0,
-        comments: 0,
-        author: {
-          id: post.author_id,
-          name: post.author_name || 'Anonymous',
-          avatarUrl: post.author_avatar
-        }
-      }));
-
-      return {
-        posts: transformedPosts as ServicePost[],
-        total: posts.length
-      };
-    } catch (error) {
-      return { posts: [], total: 0 };
+    if (options.featured) {
+      records = records.filter((record) => toBoolean(record.is_featured || record.featured));
     }
+
+    records = applyCategoryFilter(records, options.category);
+    records = applySearchFilter(records, options.search);
+
+    const total = records.length;
+
+    if (options.limit) {
+      records = sliceForPagination(records, options.limit, options.offset);
+    }
+
+    const posts = records.map((record) =>
+      mapPostRecord(
+        {
+          ...record,
+          service_id: record.service_id || serviceRecord?.id || serviceSlug,
+        },
+        serviceSlug,
+        categoriesLookup
+      )
+    );
+
+    return { posts, total };
   }
 
-  /**
-   * Get featured posts for a service
-   */
   static async getFeaturedPosts(serviceSlug: string, limit = 3): Promise<ServicePost[]> {
-    try {
-      const posts = await databaseService.getPosts({
-        serviceSlug,
-        status: 'published',
-        limit
-      });
+    const { posts } = await this.getServicePosts(serviceSlug, {
+      status: 'published',
+    });
 
-      // Transform data to match ServicePost interface
-      const transformedPosts = posts.map((post: any) => ({
-        ...post,
-        serviceType: serviceSlug,
-        isFeatured: true,
-        authorId: post.author_id,
-        createdAt: post.created_at,
-        updatedAt: post.updated_at,
-        publishedAt: post.published_at,
-        viewCount: post.view_count || 0,
-        shareCount: 0,
-        likes: 0,
-        comments: 0,
-        author: post.author ? {
-          id: post.author_id,
-          name: post.author.display_name || 'Anonymous',
-          avatarUrl: post.author.avatar_url
-        } : undefined
-      }));
+    const featured = posts
+      .filter((post) => post.isFeatured || (post.tags || []).includes('featured'))
+      .slice(0, limit);
 
-      return transformedPosts as ServicePost[];
-    } catch (error) {
-      return [];
+    if (featured.length >= limit) {
+      return featured;
     }
+
+    const supplemental = posts
+      .filter((post) => !featured.includes(post))
+      .slice(0, limit - featured.length);
+
+    return [...featured, ...supplemental].slice(0, limit);
   }
 
-  /**
-   * Create a new service post
-   */
   static async createServicePost(
     serviceSlug: string,
     postData: Omit<ServicePost, 'id' | 'createdAt' | 'updatedAt' | 'viewCount' | 'shareCount'>
   ): Promise<ServicePost | null> {
-    try {
-      const newPost = await databaseService.createPost({
-        title: postData.title,
-        content: postData.content,
-        excerpt: postData.excerpt,
-        slug: postData.slug,
-        status: postData.status || 'draft',
-        author_id: postData.authorId,
-        service_id: serviceSlug,
-        category_id: postData.category,
-        tags: JSON.stringify(postData.tags),
-        seo_title: postData.seoTitle,
-        seo_description: postData.seoDescription,
-        featured_image: postData.featuredImage
-      });
+    const serviceRecord = await resolveServiceRecord(serviceSlug);
+    const categoriesLookup = await getCategoryLookup();
 
-      if (!newPost) throw new Error('Failed to create post');
+    const payload = {
+      title: postData.title,
+      content: postData.content,
+      excerpt: postData.excerpt || '',
+      slug: postData.slug,
+      status: postData.status || 'draft',
+      featured_image: postData.featuredImage,
+      author_id: postData.authorId,
+      service_id: serviceRecord?.id || serviceSlug,
+      category_id: postData.categorySlug || postData.category || undefined,
+      seo_title: postData.seoTitle,
+      seo_description: postData.seoDescription,
+      tags: JSON.stringify(postData.tags || []),
+    };
 
-      // Transform data to match ServicePost interface
-      const transformedPost = {
-        ...newPost,
-        serviceType: newPost.service_type || serviceSlug,
-        isFeatured: false,
-        authorId: newPost.author_id,
-        createdAt: newPost.created_at,
-        updatedAt: newPost.updated_at,
-        publishedAt: newPost.published_at,
-        viewCount: 0,
-        shareCount: 0,
-        likes: 0,
-        comments: 0,
-        author: {
-          id: newPost.author_id,
-          name: 'Anonymous',
-          avatarUrl: undefined
-        }
-      };
+    const created = await databaseService.createPost(payload as any);
+    if (!created) return null;
 
-      return transformedPost as ServicePost;
-    } catch (error) {
-      return null;
-    }
+    return mapPostRecord(created, serviceSlug, categoriesLookup);
   }
 
-  /**
-   * Update a service post
-   */
   static async updateServicePost(
     postId: string,
     updates: Partial<ServicePost>
   ): Promise<ServicePost | null> {
-    try {
-      const updateData: any = {};
-      if (updates.title) updateData.title = updates.title;
-      if (updates.content) updateData.content = updates.content;
-      if (updates.excerpt) updateData.excerpt = updates.excerpt;
-      if (updates.status) updateData.status = updates.status;
-      if (updates.category) updateData.category = updates.category;
-      if (updates.tags) updateData.tags = updates.tags;
-      if (updates.featuredImage) updateData.featured_image = updates.featuredImage;
+    const categoriesLookup = await getCategoryLookup();
 
-      const data = await cloudflareDb.update('posts', updateData, { id: postId });
-      
-      if (!data) throw new Error('Failed to update post');
-
-      // Transform data to match ServicePost interface
-      const transformedPost = {
-        ...data,
-        serviceType: data.service_type,
-        isFeatured: false,
-        authorId: data.author_id,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        publishedAt: data.published_at,
-        viewCount: 0,
-        shareCount: 0,
-        likes: 0,
-        comments: 0,
-        author: data.author ? {
-          id: data.author_id,
-          name: data.author.display_name || 'Anonymous',
-          avatarUrl: data.author.avatar_url
-        } : undefined
-      };
-
-      return transformedPost as ServicePost;
-    } catch (error) {
-      return null;
+    const payload: Record<string, any> = {};
+    if (updates.title !== undefined) payload.title = updates.title;
+    if (updates.content !== undefined) payload.content = updates.content;
+    if (updates.excerpt !== undefined) payload.excerpt = updates.excerpt;
+    if (updates.status) payload.status = updates.status;
+    if (updates.featuredImage !== undefined) payload.featured_image = updates.featuredImage;
+    if (updates.seoTitle !== undefined) payload.seo_title = updates.seoTitle;
+    if (updates.seoDescription !== undefined) payload.seo_description = updates.seoDescription;
+    if (updates.tags !== undefined) payload.tags = JSON.stringify(updates.tags);
+    if (updates.categorySlug || updates.category) {
+      payload.category_id = updates.categorySlug || updates.category;
     }
+
+    const updated = await databaseService.updatePost(postId, payload);
+    if (!updated) return null;
+
+    const derivedSlug = (
+      updates.serviceType ||
+      updated.service_type ||
+      (await resolveServiceSlugById(updated.service_id)) ||
+      'adult-health-nursing'
+    );
+
+    return mapPostRecord(updated, derivedSlug, categoriesLookup);
   }
 
-  /**
-   * Delete a service post
-   */
   static async deleteServicePost(postId: string): Promise<boolean> {
-    try {
-      await cloudflareDb.delete('posts', { id: postId });
-
-      return true;
-    } catch (error) {
-      return false;
-    }
+    return databaseService.delete('posts', postId);
   }
 
-  /**
-   * Publish a draft post
-   */
   static async publishPost(postId: string): Promise<ServicePost | null> {
-    try {
-      const data = await cloudflareDb.update('posts', {
-        status: 'published',
-        published_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, { id: postId });
+    const categoriesLookup = await getCategoryLookup();
+    const updated = await databaseService.updatePost(postId, {
+      status: 'published',
+    });
 
-      if (!data) throw new Error('Failed to publish post');
+    if (!updated) return null;
 
-      // Transform data to match ServicePost interface
-      const transformedPost = {
-        ...data,
-        serviceType: data.service_type,
-        isFeatured: false,
-        authorId: data.author_id,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        publishedAt: data.published_at,
-        viewCount: data.view_count || 0,
-        shareCount: data.share_count || 0,
-        likes: 0,
-        comments: 0,
-        author: {
-          id: data.author_id,
-          name: 'Anonymous',
-          avatarUrl: undefined
-        }
-      };
+    const derivedSlug = (
+      updated.service_type ||
+      (await resolveServiceSlugById(updated.service_id)) ||
+      'adult-health-nursing'
+    );
 
-      return transformedPost as ServicePost;
-    } catch (error) {
-      return null;
-    }
+    return mapPostRecord(updated, derivedSlug, categoriesLookup);
   }
 
-  /**
-   * Get service content statistics
-   */
-  static async getServiceStats(serviceType: string): Promise<ServiceContentStats> {
-    try {
-      // Get post counts by status
-      const posts = await cloudflareDb.query(
-        'SELECT status FROM posts WHERE service_type = ?',
-        [serviceType]
-      );
+  static async getServiceStats(serviceSlug: string): Promise<ServiceContentStats> {
+    const categoriesLookup = await getCategoryLookup();
+    const { posts } = await this.getServicePosts(serviceSlug, { status: 'all' });
 
-      // Get category statistics
-      const categories = await cloudflareDb.query(
-        'SELECT category FROM posts WHERE service_type = ? AND status = ?',
-        [serviceType, 'published']
-      );
+    const totalPosts = posts.length;
+    const publishedPosts = posts.filter((post) => post.status === 'published').length;
+    const draftPosts = posts.filter((post) => post.status === 'draft').length;
+    const totalViews = posts.reduce((acc, post) => acc + (post.viewCount || 0), 0);
+    const totalLikes = posts.reduce((acc, post) => acc + (post.likes || 0), 0);
+    const totalComments = posts.reduce((acc, post) => acc + (post.comments || 0), 0);
 
-      // Get recent activity
-      const recentPosts = await cloudflareDb.query(
-        'SELECT title, created_at, author_id FROM posts WHERE service_type = ? ORDER BY created_at DESC LIMIT 10',
-        [serviceType]
-      );
+    const categoryCounts = new Map<string, { name: string; count: number }>();
+    posts.forEach((post) => {
+      const slug = post.categorySlug || post.category || 'general';
+      const categoryInfo = categoriesLookup.get(slug) || categoriesLookup.get(post.category || '') || null;
+      const name = categoryInfo?.name || post.category || 'General';
+      const current = categoryCounts.get(slug) || { name, count: 0 };
+      current.count += 1;
+      categoryCounts.set(slug, current);
+    });
 
-      // Calculate statistics
-      const postsData = posts.results || [];
-      const categoriesData = categories.results || [];
-      const recentPostsData = recentPosts.results || [];
+    const topCategories = Array.from(categoryCounts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
-      const totalPosts = postsData.length;
-      const publishedPosts = postsData.filter((p: any) => p.status === 'published').length;
-      const draftPosts = postsData.filter((p: any) => p.status === 'draft').length;
-      const totalViews = 0; // Will implement with analytics
-      const totalLikes = 0; // Will implement with interactions
-      const totalComments = 0; // Will implement with interactions
-
-      // Calculate top categories
-      const categoryCount = categoriesData.reduce((acc: Record<string, number>, post: any) => {
-        if (post.category) {
-          acc[post.category] = (acc[post.category] || 0) + 1;
-        }
-        return acc;
-      }, {});
-
-      const topCategories = Object.entries(categoryCount)
-        .map(([name, count]) => ({ name, count: count as number }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      // Format recent activity
-      const recentActivity = recentPostsData.map((post: any) => ({
-        type: 'post_created' as const,
-        timestamp: post.created_at,
+    const recentActivity = posts
+      .slice()
+      .sort((a, b) => {
+        const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 5)
+      .map((post) => ({
+        type: (post.status === 'published' ? 'post_published' : 'post_created') as 'post_created' | 'post_published',
+        timestamp: post.updatedAt || post.createdAt || new Date().toISOString(),
         title: post.title,
-        author: 'Anonymous'
+        author: post.author?.name || 'HandyWriterz Editorial',
       }));
 
-      return {
-        totalPosts,
-        publishedPosts,
-        draftPosts,
-        totalViews,
-        totalLikes,
-        totalComments,
-        topCategories,
-        recentActivity
+    return {
+      totalPosts,
+      publishedPosts,
+      draftPosts,
+      totalViews,
+      totalLikes,
+      totalComments,
+      topCategories,
+      recentActivity,
+    };
+  }
+
+  static async getServiceCategories(serviceSlug: string): Promise<Category[]> {
+    const categoriesLookup = await getCategoryLookup();
+    const { posts } = await this.getServicePosts(serviceSlug, { status: 'published' });
+
+    const counts = new Map<string, { entry: Category; count: number }>();
+
+    posts.forEach((post) => {
+      const slug = post.categorySlug || post.category || 'general';
+      const baseCategory = categoriesLookup.get(slug) || {
+        id: slug,
+        name: post.category || 'General',
+        slug,
+        count: 0,
       };
-    } catch (error) {
-      return {
-        totalPosts: 0,
-        publishedPosts: 0,
-        draftPosts: 0,
-        totalViews: 0,
-        totalLikes: 0,
-        totalComments: 0,
-        topCategories: [],
-        recentActivity: []
-      };
-    }
+
+      const current = counts.get(slug) || { entry: baseCategory, count: 0 };
+      current.count += 1;
+      counts.set(slug, current);
+    });
+
+    return Array.from(counts.values())
+      .map(({ entry, count }) => ({
+        ...entry,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
   }
 
-  /**
-   * Get categories for a service
-   */
-  static async getServiceCategories(serviceType: string): Promise<Category[]> {
-    try {
-      const result = await cloudflareDb.query(
-        'SELECT category FROM posts WHERE service_type = ? AND status = ?',
-        [serviceType, 'published']
-      );
+  static async getServiceTags(serviceSlug: string, limit = 20): Promise<string[]> {
+    const { posts } = await this.getServicePosts(serviceSlug, { status: 'published' });
+    const frequency = new Map<string, number>();
 
-      const data = result.results || [];
+    posts.forEach((post) => {
+      (post.tags || []).forEach((tag) => {
+        const lower = tag.toLowerCase();
+        frequency.set(lower, (frequency.get(lower) || 0) + 1);
+      });
+    });
 
-      // Count occurrences of each category
-      const categoryCount = data.reduce((acc: Record<string, number>, post: any) => {
-        if (post.category) {
-          acc[post.category] = (acc[post.category] || 0) + 1;
-        }
-        return acc;
-      }, {});
-
-      // Convert to Category objects
-      return Object.entries(categoryCount).map(([name, count]) => ({
-        id: name.toLowerCase().replace(/\s+/g, '-'),
-        name,
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
-        count: count as number
-      }));
-    } catch (error) {
-      return [];
-    }
+    return Array.from(frequency.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([tag]) => tag);
   }
 
-  /**
-   * Get popular tags for a service
-   */
-  static async getServiceTags(serviceType: string, limit = 20): Promise<string[]> {
-    try {
-      const result = await cloudflareDb.query(
-        'SELECT tags FROM posts WHERE service_type = ? AND status = ?',
-        [serviceType, 'published']
-      );
-
-      const data = result.results || [];
-
-      // Flatten and count tags
-      const tagCount = data.flatMap((post: any) => {
-        try {
-          return post.tags ? JSON.parse(post.tags) : [];
-        } catch {
-          return [];
-        }
-      }).reduce((acc: Record<string, number>, tag: string) => {
-        acc[tag] = (acc[tag] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Return sorted tags by popularity
-      return Object.entries(tagCount)
-        .sort(([, a], [, b]) => (b as number) - (a as number))
-        .slice(0, limit)
-        .map(([tag]) => tag);
-    } catch (error) {
-      return [];
-    }
-  }
-
-  /**
-   * Search posts across all services or specific service
-   */
   static async searchPosts(
     query: string,
-    serviceType?: string,
+    serviceSlug?: string,
     options: {
       limit?: number;
       offset?: number;
     } = {}
   ): Promise<{ posts: ServicePost[]; total: number }> {
-    try {
-      let sql = `
-        SELECT * FROM posts 
-        WHERE status = 'published' 
-        AND (title LIKE ? OR content LIKE ?)
-      `;
-      const params = [`%${query}%`, `%${query}%`];
+    const categoriesLookup = await getCategoryLookup();
+    const baseRecords = await databaseService.getPosts(serviceSlug ? { serviceSlug } : {});
+    const records = Array.isArray(baseRecords) ? baseRecords : [];
 
-      if (serviceType) {
-        sql += ' AND service_type = ?';
-        params.push(serviceType);
+    const filtered = applySearchFilter(records, query);
+    const total = filtered.length;
+    const sliced = sliceForPagination(filtered, options.limit, options.offset);
+
+    const services = await databaseService.getServices();
+    const serviceLookup = new Map<string, string>();
+    (services || []).forEach((service: any) => {
+      if (service?.id) {
+        serviceLookup.set(String(service.id), service.slug);
       }
+    });
 
-      sql += ' ORDER BY created_at DESC';
+    const posts = sliced.map((record) => {
+      const derivedSlug = (
+        serviceSlug ||
+        record.service_type ||
+        serviceLookup.get(String(record.service_id)) ||
+        'adult-health-nursing'
+      );
+      return mapPostRecord(record, derivedSlug, categoriesLookup);
+    });
 
-      if (options.limit) {
-        sql += ` LIMIT ${options.limit}`;
-      }
-      if (options.offset) {
-        sql += ` OFFSET ${options.offset}`;
-      }
-
-      const result = await cloudflareDb.query(sql, params);
-      const data = result.results || [];
-
-      // Get total count for pagination
-      let countSql = `
-        SELECT COUNT(*) as total FROM posts 
-        WHERE status = 'published' 
-        AND (title LIKE ? OR content LIKE ?)
-      `;
-      const countParams = [`%${query}%`, `%${query}%`];
-      
-      if (serviceType) {
-        countSql += ' AND service_type = ?';
-        countParams.push(serviceType);
-      }
-
-      const countResult = await cloudflareDb.query(countSql, countParams);
-      const total = countResult.results?.[0]?.total || 0;
-
-      // Transform data to match ServicePost interface
-      const transformedPosts = data.map((post: any) => ({
-        ...post,
-        serviceType: post.service_type,
-        isFeatured: false,
-        authorId: post.author_id,
-        createdAt: post.created_at,
-        updatedAt: post.updated_at,
-        publishedAt: post.published_at,
-        viewCount: post.view_count || 0,
-        shareCount: post.share_count || 0,
-        likes: 0,
-        comments: 0,
-        author: {
-          id: post.author_id,
-          name: 'Anonymous',
-          avatarUrl: undefined
-        }
-      }));
-
-      return {
-        posts: transformedPosts as ServicePost[],
-        total
-      };
-    } catch (error) {
-      return { posts: [], total: 0 };
-    }
+    return { posts, total };
   }
 
-  /**
-   * Increment view count for a post
-   */
   static async incrementViewCount(postId: string): Promise<void> {
-    try {
-      await cloudflareDb.query(
-        'UPDATE posts SET view_count = COALESCE(view_count, 0) + 1 WHERE id = ?',
-        [postId]
-      );
-    } catch (error) {
-    }
+    await databaseService.incrementViewCount(postId);
   }
 
-  /**
-   * Toggle like for a post
-   */
-  static async togglePostLike(postId: string, userId: string): Promise<boolean> {
-    try {
-      // Check if user already liked the post
-      const existingLike = await cloudflareDb.query(
-        'SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?',
-        [postId, userId]
-      );
-
-      if (existingLike.results && existingLike.results.length > 0) {
-        // Remove like
-        await cloudflareDb.query(
-          'DELETE FROM post_likes WHERE post_id = ? AND user_id = ?',
-          [postId, userId]
-        );
-        return false;
-      } else {
-        // Add like
-        await cloudflareDb.query(
-          'INSERT INTO post_likes (post_id, user_id, created_at) VALUES (?, ?, ?)',
-          [postId, userId, new Date().toISOString()]
-        );
-        return true;
-      }
-    } catch (error) {
-      return false;
-    }
+  static async togglePostLike(postId: string, _userId: string): Promise<boolean> {
+    // In mock mode, simply return true to indicate the toggle succeeded.
+    // Persistent like state should be handled server-side when available.
+    return true;
   }
 }

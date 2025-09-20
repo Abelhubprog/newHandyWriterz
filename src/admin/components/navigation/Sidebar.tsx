@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  FiHome, 
-  FiFileText, 
-  FiUsers, 
-  FiBarChart2, 
+import {
+  FiHome,
+  FiFileText,
+  FiUsers,
+  FiBarChart2,
   FiSettings,
   FiFolder,
   FiChevronRight,
@@ -30,19 +30,19 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const [servicesOpen, setServicesOpen] = useState(false);
   const [contentOpen, setContentOpen] = useState(false);
-  
+
   // Check if the current route matches this path
   const isActive = (path: string) => location.pathname === path;
-  
+
   // Check if the current route starts with this path
   const isActiveParent = (path: string) => location.pathname.startsWith(path);
-  
+
   // Toggle the services dropdown
   const toggleServices = () => setServicesOpen(!servicesOpen);
-  
+
   // Toggle the content dropdown
   const toggleContent = () => setContentOpen(!contentOpen);
-  
+
   // Check if we need to open dropdown based on current path
   useEffect(() => {
     if (location.pathname.startsWith('/admin/services/')) {
@@ -52,7 +52,7 @@ const Sidebar: React.FC = () => {
       setContentOpen(true);
     }
   }, [location.pathname]);
-  
+
   return (
     <aside className="w-64 h-screen bg-white border-r border-gray-200 hidden md:block overflow-y-auto">
       {/* Logo */}
@@ -64,11 +64,11 @@ const Sidebar: React.FC = () => {
           <span className="ml-3 text-xl font-bold text-gray-900">HandyWriterz</span>
         </div>
       </div>
-      
+
       {/* Navigation Menu */}
       <div className="p-4 space-y-1 overflow-y-auto">
-        <Link 
-          to="/admin" 
+        <Link
+          to="/admin"
           className={`flex items-center px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
             isActive('/admin') ? 'bg-blue-50 text-blue-700' : ''
           }`}
@@ -76,10 +76,10 @@ const Sidebar: React.FC = () => {
           <FiHome className="w-5 h-5" />
           <span className="mx-4 font-medium">Dashboard</span>
         </Link>
-        
+
         {/* Content Management - with dropdown */}
         <div>
-          <button 
+          <button
             className={`w-full flex items-center justify-between px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
               isActiveParent('/admin/content') ? 'bg-blue-50 text-blue-700' : ''
             }`}
@@ -91,27 +91,27 @@ const Sidebar: React.FC = () => {
             </div>
             {contentOpen ? <FiChevronDown className="w-5 h-5" /> : <FiChevronRight className="w-5 h-5" />}
           </button>
-          
+
           {contentOpen && (
             <div className="pl-4 mt-1 space-y-1">
-              <Link 
-                to="/admin/content" 
+              <Link
+                to="/admin/content"
                 className={`flex items-center pl-8 pr-4 py-2 text-sm text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
                   isActive('/admin/content') ? 'bg-blue-50 text-blue-700' : ''
                 }`}
               >
                 <span>All Content</span>
               </Link>
-              <Link 
-                to="/admin/content/new" 
+              <Link
+                to="/admin/content/new"
                 className={`flex items-center pl-8 pr-4 py-2 text-sm text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
                   isActive('/admin/content/new') ? 'bg-blue-50 text-blue-700' : ''
                 }`}
               >
                 <span>Create New</span>
               </Link>
-              <Link 
-                to="/admin/categories" 
+              <Link
+                to="/admin/categories"
                 className={`flex items-center pl-8 pr-4 py-2 text-sm text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
                   isActive('/admin/categories') ? 'bg-blue-50 text-blue-700' : ''
                 }`}
@@ -121,10 +121,10 @@ const Sidebar: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         {/* Services - with dropdown */}
         <div>
-          <button 
+          <button
             className={`w-full flex items-center justify-between px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
               isActiveParent('/admin/services') ? 'bg-blue-50 text-blue-700' : ''
             }`}
@@ -136,12 +136,12 @@ const Sidebar: React.FC = () => {
             </div>
             {servicesOpen ? <FiChevronDown className="w-5 h-5" /> : <FiChevronRight className="w-5 h-5" />}
           </button>
-          
+
           {servicesOpen && (
             <div className="pl-4 mt-1 space-y-1">
               {serviceTypes.map((service) => (
                 <div key={service.id}>
-                  <Link 
+                  <Link
                     to={`/admin/services/${service.id}`}
                     className={`flex items-center pl-8 pr-4 py-2 text-sm text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
                       isActive(`/admin/services/${service.id}`) ? 'bg-blue-50 text-blue-700' : ''
@@ -149,7 +149,7 @@ const Sidebar: React.FC = () => {
                   >
                     <span>{service.name}</span>
                   </Link>
-                  <Link 
+                  <Link
                     to={`/admin/services/edit/${service.id}`}
                     className={`flex items-center pl-12 pr-4 py-2 text-xs text-gray-500 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
                       isActive(`/admin/services/edit/${service.id}`) ? 'bg-blue-50 text-blue-700' : ''
@@ -158,14 +158,23 @@ const Sidebar: React.FC = () => {
                     <FiEdit className="w-3 h-3 mr-2" />
                     <span>Settings</span>
                   </Link>
+                  <Link
+                    to={`/admin/services/edit/${service.id}/experience`}
+                    className={`flex items-center pl-12 pr-4 py-2 text-xs text-gray-500 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
+                      isActive(`/admin/services/edit/${service.id}/experience`) ? 'bg-blue-50 text-blue-700' : ''
+                    }`}
+                  >
+                    <span className="w-3 h-3 mr-2 rounded-sm bg-gradient-to-br from-sky-500 to-indigo-500 inline-block" />
+                    <span>Design Experience</span>
+                  </Link>
                 </div>
               ))}
             </div>
           )}
         </div>
-        
-        <Link 
-          to="/admin/users" 
+
+        <Link
+          to="/admin/users"
           className={`flex items-center px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
             isActiveParent('/admin/users') ? 'bg-blue-50 text-blue-700' : ''
           }`}
@@ -173,9 +182,9 @@ const Sidebar: React.FC = () => {
           <FiUsers className="w-5 h-5" />
           <span className="mx-4 font-medium">Users</span>
         </Link>
-        
-        <Link 
-          to="/admin/analytics" 
+
+        <Link
+          to="/admin/analytics"
           className={`flex items-center px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
             isActive('/admin/analytics') ? 'bg-blue-50 text-blue-700' : ''
           }`}
@@ -183,9 +192,9 @@ const Sidebar: React.FC = () => {
           <FiBarChart2 className="w-5 h-5" />
           <span className="mx-4 font-medium">Analytics</span>
         </Link>
-        
-        <Link 
-          to="/admin/settings" 
+
+        <Link
+          to="/admin/settings"
           className={`flex items-center px-4 py-3 text-gray-600 transition-colors duration-200 rounded-lg hover:bg-gray-100 ${
             isActive('/admin/settings') ? 'bg-blue-50 text-blue-700' : ''
           }`}
@@ -198,4 +207,4 @@ const Sidebar: React.FC = () => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;

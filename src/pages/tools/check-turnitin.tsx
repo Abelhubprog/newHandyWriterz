@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FileText, Upload, AlertCircle, CheckCircle, Loader2, X, Moon, Sun, 
+import {
+  FileText, Upload, AlertCircle, CheckCircle, Loader2, X, Moon, Sun,
   ArrowRight, CreditCard, Mail, ArrowDown, Shield, BarChart, Clock, DollarSign, ArrowLeft, Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 
 // Import D1 client and R2 client for Cloudflare integration
 import { cloudflareDb } from '@/lib/cloudflare';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { r2Client } from '@/lib/cloudflareR2Client';
 
 // Type definition for receipt
@@ -41,11 +41,11 @@ interface FileUploadState {
 const TurnitinCheck: React.FC = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
-  const [fileUploadState, setFileUploadState] = useState<FileUploadState>({ 
-    fileId: null, 
-    bucket: null, 
-    sha256: null, 
-    uploadProgress: 0 
+  const [fileUploadState, setFileUploadState] = useState<FileUploadState>({
+    fileId: null,
+    bucket: null,
+    sha256: null,
+    uploadProgress: 0
   });
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +99,7 @@ const TurnitinCheck: React.FC = () => {
       setEmailError('Email address is required');
       return;
     }
-    
+
     if (!validateEmail(email)) {
       setEmailError('Please enter a valid email address');
       return;
@@ -114,24 +114,24 @@ const TurnitinCheck: React.FC = () => {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
-      
+
       if (selectedFile.size > 20 * 1024 * 1024) {
         setError('File size must be less than 20MB');
         return;
       }
-      
+
       const allowedTypes = [
-        'application/pdf', 
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
       ];
-      
+
       if (!allowedTypes.includes(selectedFile.type)) {
         setError('Only PDF, DOC, DOCX, and TXT files are supported');
         return;
       }
-      
+
       setFile(selectedFile);
       setError(null);
       // Don't mark step 2 completed here yet, only after successful upload initiation attempt
@@ -152,7 +152,7 @@ const TurnitinCheck: React.FC = () => {
 
   // Update step status
   const updateStepStatus = (stepId: number, completed: boolean) => {
-    setSteps(prevSteps => 
+    setSteps(prevSteps =>
       prevSteps.map(step => {
         if (step.id === stepId) {
           return { ...step, completed };
@@ -188,7 +188,7 @@ const TurnitinCheck: React.FC = () => {
 
   // Generate a receipt ID with better uniqueness
   const generateReceiptId = (): string => {
-    return 'TRN-' + Date.now().toString(36).toUpperCase() + '-' + 
+    return 'TRN-' + Date.now().toString(36).toUpperCase() + '-' +
            Math.random().toString(36).substring(2, 7).toUpperCase();
   };
 
@@ -234,25 +234,25 @@ const TurnitinCheck: React.FC = () => {
           },
           publicAccess: true
         };
-        
+
         // Setup progress tracking
         const progressTracker = (progress: number) => {
           setFileUploadState(prev => ({ ...prev, uploadProgress: progress }));
         };
-        
+
         // Upload the file using R2 client
         const uploadResult = await r2Client.uploadFile(fileToUpload, filePath, uploadOptions, progressTracker);
 
         // Get the public URL for the file
         const publicUrl = r2Client.getPublicUrl(filePath);
-            
+
         setFileUploadState({
           fileId: filePath, // Using filePath as a unique identifier for now
           bucket: 'documents',
           sha256: calculatedSha256,
           uploadProgress: 100,
         });
-            
+
         // Create Order using Cloudflare D1
         try {
           const orderPayload = {
@@ -270,15 +270,15 @@ const TurnitinCheck: React.FC = () => {
           };
 
           // Insert into orders table using D1 client
-          const { data: orderResponse, error: orderError } = await cloudflareDb.insert('orders', orderPayload);
+          const orderResult = await cloudflareDb.insert('orders', orderPayload as any);
 
-          if (orderError) {
-            setError(`Order creation failed: ${orderError}`);
-            throw new Error(`Failed to create order: ${orderError}`);
+          if ((orderResult as any)?.error) {
+            setError(`Order creation failed: ${(orderResult as any).error}`);
+            throw new Error(`Failed to create order: ${(orderResult as any).error}`);
           }
 
-          if (orderResponse) {
-            const orderId = orderResponse.id || Date.now().toString();
+          if ((orderResult as any)?.id) {
+            const orderId = (orderResult as any).id || Date.now().toString();
             setCreatedOrderId(orderId); // Save the created order ID
             setReceipt(prev => ({
               ...prev,
@@ -340,8 +340,8 @@ const TurnitinCheck: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email Address *
                 </label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
@@ -349,7 +349,7 @@ const TurnitinCheck: React.FC = () => {
                 />
                 {emailError && <p className="text-red-500 text-sm mt-2">{emailError}</p>}
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <div className="flex items-start space-x-3">
                   <Mail size={20} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
@@ -361,9 +361,9 @@ const TurnitinCheck: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
-              <button 
-                onClick={handleEmailSubmit} 
+
+              <button
+                onClick={handleEmailSubmit}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
               >
                 Continue <ArrowRight size={18} />
@@ -376,10 +376,10 @@ const TurnitinCheck: React.FC = () => {
           <div className="p-6 lg:p-8">
             <h2 className="text-xl lg:text-2xl font-semibold mb-4 lg:mb-6 text-gray-800 dark:text-white">Upload Your Document</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">Upload the document you want to check for plagiarism.</p>
-            <div 
-              {...getRootProps()} 
-              className={`p-8 lg:p-10 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-all duration-200 
-                ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]' : 'border-gray-300 dark:border-gray-600'} 
+            <div
+              {...getRootProps()}
+              className={`p-8 lg:p-10 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-all duration-200
+                ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-[1.02]' : 'border-gray-300 dark:border-gray-600'}
                 ${darkMode ? 'dark' : ''}`}
             >
               <input {...getInputProps()} />
@@ -411,7 +411,7 @@ const TurnitinCheck: React.FC = () => {
                       <p className="text-sm text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => { setFile(null); setFileUploadState({ fileId: null, bucket: null, sha256: null, uploadProgress: 0 }); }}
                     aria-label="Remove selected file"
                     className="text-red-500 hover:text-red-700"
@@ -422,7 +422,7 @@ const TurnitinCheck: React.FC = () => {
                 {isUploading && (
                   <div className="mt-3">
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                      <div 
+                      <div
                         className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
                         style={{ width: `${fileUploadState.uploadProgress}%` }}
                       ></div>
@@ -443,8 +443,8 @@ const TurnitinCheck: React.FC = () => {
                 </div>
               </div>
             )}
-            <button 
-              onClick={() => file && handleFileUpload(file)} 
+            <button
+              onClick={() => file && handleFileUpload(file)}
               disabled={!file || isUploading || uploadStatus === 'success'}
               className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white py-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
@@ -491,13 +491,13 @@ const TurnitinCheck: React.FC = () => {
               </div>
             </div>
             <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-between">
-              <button 
-                onClick={() => setCurrentStep(prev => prev -1)} 
+              <button
+                onClick={() => setCurrentStep(prev => prev -1)}
                 className="order-2 sm:order-1 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white py-3 px-6 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
               >
                 <ArrowLeft size={18} /> Back
               </button>
-              <button 
+              <button
                 onClick={goToNextStep}
                 className="order-1 sm:order-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
               >
@@ -511,7 +511,7 @@ const TurnitinCheck: React.FC = () => {
           <div className="p-6 lg:p-8">
             <h2 className="text-xl lg:text-2xl font-semibold mb-4 lg:mb-6 text-gray-800 dark:text-white">Choose Payment Method</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">Select your preferred payment method to complete your order.</p>
-            
+
             {/* Order Summary */}
             <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
               <h3 className="font-medium text-gray-800 dark:text-white mb-2">Order Summary</h3>
@@ -520,11 +520,11 @@ const TurnitinCheck: React.FC = () => {
                 <span className="font-semibold text-green-600 dark:text-green-400">£{price}</span>
               </div>
             </div>
-            
+
             {/* Payment Methods */}
             <div className="space-y-3 mb-8">
               <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4">Payment Options</h3>
-              
+
               <button className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -539,7 +539,7 @@ const TurnitinCheck: React.FC = () => {
                   <ArrowRight size={20} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
               </button>
-              
+
               <button className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -554,7 +554,7 @@ const TurnitinCheck: React.FC = () => {
                   <ArrowRight size={20} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
               </button>
-              
+
               <button className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -569,7 +569,7 @@ const TurnitinCheck: React.FC = () => {
                   <ArrowRight size={20} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
               </button>
-              
+
               <button className="w-full text-left p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -585,10 +585,10 @@ const TurnitinCheck: React.FC = () => {
                 </div>
               </button>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
-              <button 
-                onClick={() => setCurrentStep(prev => prev -1)} 
+              <button
+                onClick={() => setCurrentStep(prev => prev -1)}
                 className="order-2 sm:order-1 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white py-3 px-6 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
               >
                 <ArrowLeft size={18} /> Back
@@ -606,7 +606,7 @@ const TurnitinCheck: React.FC = () => {
               <h2 className="text-xl lg:text-2xl font-semibold text-gray-800 dark:text-white mb-2">Order Confirmed!</h2>
               <p className="text-gray-600 dark:text-gray-400">Your document has been submitted for plagiarism analysis.</p>
             </div>
-            
+
             {receipt && (
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 border border-gray-200 dark:border-gray-600 mb-8">
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Order Details</h3>
@@ -630,8 +630,8 @@ const TurnitinCheck: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Status:</span>
                     <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
-                      receipt.status === 'Paid' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                      receipt.status === 'Paid'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                     }`}>
                       {receipt.status}
@@ -645,7 +645,7 @@ const TurnitinCheck: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Next Steps */}
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-700 mb-8">
               <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-3">What Happens Next?</h3>
@@ -656,15 +656,15 @@ const TurnitinCheck: React.FC = () => {
                 <p>• You can track your order status in your dashboard</p>
               </div>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button 
+              <button
                 onClick={() => navigate('/')}
                 className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
               >
                 <Home size={18} /> Return to Homepage
               </button>
-              <button 
+              <button
                 onClick={() => window.location.reload()}
                 className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
@@ -680,7 +680,7 @@ const TurnitinCheck: React.FC = () => {
 
   // Production version - debug logging removed
 
-  // Ensuring the component returns a valid ReactNode 
+  // Ensuring the component returns a valid ReactNode
   return (
     <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-100'}`}>
       {/* Navigation Header */}
@@ -688,7 +688,7 @@ const TurnitinCheck: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <button 
+              <button
                 onClick={() => navigate('/')}
                 className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
@@ -698,8 +698,8 @@ const TurnitinCheck: React.FC = () => {
               <div className="text-gray-300 dark:text-gray-600">/</div>
               <span className="text-gray-900 dark:text-white font-medium">Turnitin Check</span>
             </div>
-            <button 
-              onClick={() => setDarkMode(!darkMode)} 
+            <button
+              onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
@@ -716,14 +716,14 @@ const TurnitinCheck: React.FC = () => {
             <h1 className="text-xl lg:text-2xl font-bold text-gray-800 dark:text-white mb-2">Turnitin Check</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">Professional plagiarism detection service</p>
           </div>
-          
+
           {/* Progress Steps - Mobile Horizontal, Desktop Vertical */}
           <div className="lg:space-y-4">
             <div className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible space-x-4 lg:space-x-0 pb-4 lg:pb-0">
               {steps.map((step, index) => (
                 <div key={step.id} className="flex lg:flex-row items-center min-w-0 flex-shrink-0 lg:flex-shrink">
                   <div className={`flex flex-col lg:flex-row items-center lg:items-start space-y-2 lg:space-y-0 lg:space-x-3 ${step.current || step.completed ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                    <div 
+                    <div
                       className={`w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 flex-shrink-0
                         ${step.completed ? 'bg-blue-600 border-blue-600 text-white' : (step.current ? 'border-blue-600 bg-blue-50 dark:bg-blue-900' : 'border-gray-300 dark:border-gray-600')}`}
                     >
@@ -779,7 +779,7 @@ const TurnitinCheck: React.FC = () => {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  {renderStepContentInternal()} 
+                  {renderStepContentInternal()}
                 </motion.div>
               </AnimatePresence>
             </div>

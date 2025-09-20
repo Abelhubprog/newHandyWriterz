@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
-import { cloudflareDb } from '@/lib/cloudflare';
 import { performLogout } from '@/utils/authLogout';
+import { deriveUserRole, hasAdminRole } from '@/utils/clerkRoles';
 
-// Define Session type for D1 compatibility
 export interface Session {
   user: any;
 }
@@ -13,75 +12,66 @@ interface User {
   email: string;
   name: string;
   avatarUrl?: string;
+  role: string;
 }
+
+const buildDisplayName = (clerkUser: ReturnType<typeof useUser>['user']): string => {
+  if (!clerkUser) return 'User';
+
+  const first = clerkUser.firstName ?? '';
+  const last = clerkUser.lastName ?? '';
+  const fullName = `${first} ${last}`.trim();
+
+  if (fullName) return fullName;
+  if (clerkUser.username) return clerkUser.username;
+  if (clerkUser.primaryEmailAddress?.emailAddress) {
+    return clerkUser.primaryEmailAddress.emailAddress;
+  }
+
+  return 'User';
+};
 
 export const useAuth = () => {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser();
   const clerk = useClerk();
+
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(!isLoaded);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    const syncUserData = async () => {
+    const syncUser = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-
         if (isSignedIn && clerkUser) {
-          const userSession = { user: clerkUser };
-          setSession(userSession);
-
-          let profile: any = null;
-          try {
-            const profiles = await cloudflareDb.select('user_profiles', { id: clerkUser.id }, 1);
-            profile = profiles?.[0] ?? null;
-          } catch (dbError) {
-            // Persist the Clerk user even if the profile fetch fails (e.g., during local dev)
-            console.warn('Failed to load user profile from D1', dbError);
-            setError(dbError instanceof Error ? dbError : new Error('Failed to load user profile'));
-          }
-
-          const fallbackName = `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() 
-            || clerkUser.username 
-            || clerkUser.emailAddresses[0]?.emailAddress 
-            || 'User';
+          const displayName = buildDisplayName(clerkUser);
+          const derivedRole = deriveUserRole(clerkUser);
 
           setUser({
             id: clerkUser.id,
-            email: clerkUser.emailAddresses[0]?.emailAddress || '',
-            name: profile?.full_name || fallbackName,
-            avatarUrl: profile?.avatar_url || clerkUser.imageUrl
+            email: clerkUser.primaryEmailAddress?.emailAddress || '',
+            name: displayName,
+            avatarUrl: clerkUser.imageUrl || undefined,
+            role: derivedRole,
           });
+
+          setSession({ user: clerkUser });
         } else {
           setUser(null);
           setSession(null);
         }
       } catch (err) {
-        const fallbackError = err instanceof Error ? err : new Error('Unknown authentication error');
-        setError(fallbackError);
-
-        if (isSignedIn && clerkUser) {
-          const fallbackName = `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() 
-            || clerkUser.username 
-            || clerkUser.emailAddresses[0]?.emailAddress 
-            || 'User';
-
-          setUser({
-            id: clerkUser.id,
-            email: clerkUser.emailAddresses[0]?.emailAddress || '',
-            name: fallbackName,
-            avatarUrl: clerkUser.imageUrl
-          });
-        }
+        const formattedError = err instanceof Error ? err : new Error('Unknown authentication error');
+        setError(formattedError);
       } finally {
         setIsLoading(false);
       }
     };
 
-    syncUserData();
+    syncUser();
   }, [isLoaded, isSignedIn, clerkUser]);
 
   const signIn = async (email: string, password: string) => {
@@ -89,7 +79,7 @@ export const useAuth = () => {
       setIsLoading(true);
       await clerk.client.signIn.create({
         identifier: email,
-        password
+        password,
       });
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to sign in'));
@@ -105,9 +95,9 @@ export const useAuth = () => {
       await clerk.client.signIn.create({
         identifier: email,
         strategy: 'email_link',
-        redirectUrl: window.location.origin
+        redirectUrl: window.location.origin,
       });
-      return { success: true, message: "Magic link sent to your email" };
+      return { success: true, message: 'Magic link sent to your email' };
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to send magic link'));
       throw err;
@@ -119,24 +109,16 @@ export const useAuth = () => {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setIsLoading(true);
-      
-      // Create auth user with Clerk
-      const result = await clerk.client.signUp.create({
+
+      const [firstName, ...rest] = name.split(' ').filter(Boolean);
+      const lastName = rest.join(' ');
+
+      await clerk.client.signUp.create({
         emailAddress: email,
         password,
-        firstName: name.split(' ')[0] || name,
-        lastName: name.split(' ').slice(1).join(' ') || ''
+        firstName: firstName || name,
+        lastName: lastName,
       });
-      
-      if (result.createdUserId) {
-        // Create user profile in D1
-        await cloudflareDb.insert('user_profiles', {
-          id: result.createdUserId,
-          full_name: name,
-          email,
-          created_at: new Date().toISOString()
-        });
-      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to sign up'));
       throw err;
@@ -148,7 +130,9 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       setIsLoading(true);
-      await performLogout();
+      await performLogout(clerk.signOut);
+      setUser(null);
+      setSession(null);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to sign out'));
       throw err;
@@ -161,7 +145,7 @@ export const useAuth = () => {
     try {
       setIsLoading(true);
       await clerk.user?.updatePassword({ newPassword });
-      return { success: true, message: "Password updated successfully" };
+      return { success: true, message: 'Password updated successfully' };
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to update password'));
       throw err;
@@ -169,6 +153,8 @@ export const useAuth = () => {
       setIsLoading(false);
     }
   };
+
+  const adminFlag = hasAdminRole(clerkUser || undefined) || user?.role === 'admin';
 
   return {
     user,
@@ -180,6 +166,6 @@ export const useAuth = () => {
     logout,
     signInWithMagicLink,
     updatePassword,
-    isAdmin: user?.email?.includes('admin') || false
+    isAdmin: Boolean(adminFlag),
   };
 };

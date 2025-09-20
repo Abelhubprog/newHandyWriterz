@@ -22,7 +22,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
 import { FileUploader } from '@/components/ui/FileUploader';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { useAuth } from '@/hooks/useAuth';
 import { documentSubmissionService } from '@/services/documentSubmissionService';
 
@@ -82,12 +82,12 @@ const BASE_PRICE_PER_100_WORDS = 5;
 const OrderFlow: React.FC<OrderFlowProps> = ({ serviceType, serviceName }) => {
   const navigate = useNavigate();
   const { session, user } = useAuth();
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  
+
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     title: '',
     description: '',
@@ -99,28 +99,28 @@ const OrderFlow: React.FC<OrderFlowProps> = ({ serviceType, serviceName }) => {
     urgency: 'standard',
     additionalServices: [],
   });
-  
+
   const [totalPrice, setTotalPrice] = useState(0);
 
   // Calculate price when order details change
   useEffect(() => {
     const basePrice = (orderDetails.wordCount / 100) * BASE_PRICE_PER_100_WORDS;
-    
+
     // Academic level multipliers
-    const academicMultiplier = 
+    const academicMultiplier =
       orderDetails.academicLevel === 'high_school' ? 1.0 :
       orderDetails.academicLevel === 'undergraduate' ? 1.2 :
       orderDetails.academicLevel === 'masters' ? 1.5 :
       orderDetails.academicLevel === 'phd' ? 2.0 :
-      orderDetails.academicLevel.startsWith('level_') ? 
+      orderDetails.academicLevel.startsWith('level_') ?
         (parseInt(orderDetails.academicLevel.split('_')[1]) / 4) + 0.75 : 1.0;
-    
+
     // Urgency multipliers
-    const urgencyMultiplier = 
+    const urgencyMultiplier =
       orderDetails.urgency === 'standard' ? 1.0 :
       orderDetails.urgency === 'urgent' ? 1.5 :
       orderDetails.urgency === 'super_urgent' ? 2.0 : 1.0;
-    
+
     // Additional services total
     const additionalServicesTotal = orderDetails.additionalServices.reduce((total, serviceId) => {
       const service = ADDITIONAL_SERVICES.find(s => s.id === serviceId);

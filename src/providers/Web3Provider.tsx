@@ -17,6 +17,8 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         if (disableMetaMask === 'true') {
           // Set flags to disable MetaMask detection
           (window as any).__disableMetamaskDetection = true;
+          // Official flag respected by MetaMask to skip provider injection
+          (window as any).__disableEthereumInjection = true;
           // MetaMask detection disabled for production
         }
       } catch (error) {

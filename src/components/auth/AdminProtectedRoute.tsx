@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { adminAuth } from '@/services/adminAuth';
 import { Loader2 } from 'lucide-react';
+import { hasAdminRole } from '@/utils/clerkRoles';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
@@ -13,30 +13,21 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) =
   const { user } = useUser();
   const location = useLocation();
   const [hasAdminAccess, setHasAdminAccess] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (isLoaded && isSignedIn && user) {
-        try {
-          // Check if user has admin privileges using adminAuth service
-          const adminStatus = await adminAuth.isAdmin(user.id);
-          setHasAdminAccess(adminStatus);
-        } catch (error) {
-          setHasAdminAccess(false);
-        } finally {
-          setIsLoading(false);
-        }
-      } else if (isLoaded && !isSignedIn) {
-        setIsLoading(false);
-        setHasAdminAccess(false);
-      }
-    };
+    if (!isLoaded) {
+      return;
+    }
 
-    checkAdminStatus();
+    if (!isSignedIn) {
+      setHasAdminAccess(false);
+      return;
+    }
+
+    setHasAdminAccess(hasAdminRole(user));
   }, [isLoaded, isSignedIn, user]);
 
-  if (!isLoaded || isLoading) {
+  if (!isLoaded || hasAdminAccess === null) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="flex flex-col items-center gap-4">
@@ -48,17 +39,14 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) =
   }
 
   if (!isSignedIn) {
-    // Redirect to sign-in page if user is not signed in
     return <Navigate to="/sign-in" state={{ from: location }} replace />;
   }
 
-  if (hasAdminAccess === false) {
-    // Redirect to unauthorized page if user is not an admin
+  if (!hasAdminAccess) {
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 
-  // Render children if user has admin access
   return <>{children}</>;
 };
 
-export default AdminProtectedRoute; 
+export default AdminProtectedRoute;

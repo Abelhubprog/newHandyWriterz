@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { adminAuth } from '../services/adminAuth';
+import { hasAdminRole } from '@/utils/clerkRoles';
 
 /**
- * A hook to check if the current user is an admin
- * Uses Clerk for authentication and Cloudflare D1 for role management
+ * Hook that resolves whether the currently authenticated Clerk user has admin access.
  */
 export const useIsAdmin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -12,26 +11,13 @@ export const useIsAdmin = () => {
   const { user, isLoaded } = useUser();
 
   useEffect(() => {
-    const checkAdmin = async () => {
-      setIsLoading(true);
-      try {
-        if (isLoaded && user?.id) {
-          const adminStatus = await adminAuth.isAdmin(user.id);
-          setIsAdmin(adminStatus);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (error) {
-        setIsAdmin(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (isLoaded) {
-      checkAdmin();
+    if (!isLoaded) {
+      return;
     }
-  }, [user, isLoaded]);
+
+    setIsLoading(false);
+    setIsAdmin(hasAdminRole(user));
+  }, [isLoaded, user]);
 
   return { isAdmin, isLoading };
 };

@@ -16,7 +16,7 @@ scheduleJob('0 2 * * *', async () => {
   async function verifyFileIntegrity(doc: any) {
     const fileBuffer = await fs.promises.readFile(doc.storagePath);
     const currentHash = createHash('sha256').update(fileBuffer).digest('hex');
-    
+
     if (currentHash !== doc.originalHash) {
       throw new Error(`File hash mismatch for document ${doc.id}`);
     }

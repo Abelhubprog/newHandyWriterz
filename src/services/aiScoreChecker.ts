@@ -66,9 +66,9 @@ export class AiScoreChecker {
       });
 
       if (existingScore) {
-        logger.info('Using existing paid AI score', { 
-          userId: validatedInput.userId, 
-          orderId: validatedInput.orderId 
+        logger.info('Using existing paid AI score', {
+          userId: validatedInput.userId,
+          orderId: validatedInput.orderId
         });
         return {
           score: existingScore.score,
@@ -143,10 +143,10 @@ export class AiScoreChecker {
       };
 
     } catch (error) {
-      logger.error('AI score check failed', { 
-        error, 
-        userId: input.userId, 
-        orderId: input.orderId 
+      logger.error('AI score check failed', {
+        error,
+        userId: input.userId,
+        orderId: input.orderId
       });
 
       if (error instanceof z.ZodError) {

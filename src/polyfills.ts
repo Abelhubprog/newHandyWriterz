@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
   
   if (disableMetaMask) {
     // Set flag to disable MetaMask detection
-    window.__disableMetamaskDetection = true;
+  (window as any).__disableMetamaskDetection = true;
     
     // Override console.error to filter MetaMask warnings
     const originalConsoleError = console.error;
@@ -27,30 +27,20 @@ if (typeof window !== 'undefined') {
       }
     };
     
-    // Provide dummy ethereum object to prevent errors
-    if (!window.ethereum) {
-      window.ethereum = {
-        isMetaMask: false,
-        _isDisabled: true,
-        request: async () => { throw new Error('MetaMask is disabled'); },
-        on: () => {},
-        removeListener: () => {},
-        autoRefreshOnNetworkChange: false
-      };
-    }
+    // Do NOT assign to window.ethereum to avoid provider conflicts with wallet extensions
   }
 }
 
 // Global process polyfill
 if (typeof window !== 'undefined') {
   // Ensure process exists
-  if (!window.process) {
-    window.process = {} as NodeJS.Process;
+  if (!(window as any).process) {
+    (window as any).process = {} as NodeJS.Process;
   }
   
   // Ensure process.env exists
-  if (!window.process.env) {
-    window.process.env = {
+  if (!(window as any).process.env) {
+    (window as any).process.env = {
       NODE_ENV: import.meta.env.MODE,
       VITE_DYNAMIC_ENVIRONMENT_ID: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID
     };
@@ -59,14 +49,14 @@ if (typeof window !== 'undefined') {
   // Copy all VITE_ prefixed env variables
   Object.keys(import.meta.env).forEach(key => {
     if (key.startsWith('VITE_')) {
-      window.process.env[key] = import.meta.env[key];
+      (window as any).process.env[key] = (import.meta as any).env[key];
     }
   });
 }
 
 // Add globalThis polyfill
-if (typeof window !== 'undefined' && !window.global) {
-  window.global = window;
+if (typeof window !== 'undefined' && !(window as any).global) {
+  (window as any).global = window as any;
 }
 
 export {};

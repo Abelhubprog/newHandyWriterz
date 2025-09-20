@@ -64,37 +64,37 @@ const RootLayout: React.FC = () => {
                   <h3 className="text-xl font-semibold text-white mb-8">Services</h3>
                   <ul className="space-y-4">
                     <li>
-                      <Link to="/services/adult-health-nursing" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
-                        Adult Health Nursing
+                      <Link to="/d/adult-health" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                        Adult Health
                       </Link>
                     </li>
                     <li>
-                      <Link to="/services/mental-health-nursing" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
-                        Mental Health Nursing
+                      <Link to="/d/mental-health" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                        Mental Health
                       </Link>
                     </li>
                     <li>
-                      <Link to="/services/child-nursing" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                      <Link to="/d/child-nursing" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
                         Child Nursing
                       </Link>
                     </li>
                     <li>
-                      <Link to="/services/special-education" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
-                        Special Education
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="/services/social-work" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                      <Link to="/d/social-work" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
                         Social Work
                       </Link>
                     </li>
                     <li>
-                      <Link to="/services/advanced-practice-nursing" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
-                        Advanced Practice Nursing
+                      <Link to="/d/technology" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                        Technology
                       </Link>
                     </li>
                     <li>
-                      <Link to="/services/crypto" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                      <Link to="/d/ai" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
+                        Artificial Intelligence
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/d/crypto" onClick={scrollToTop} className="text-gray-400 hover:text-white transition-colors hover:translate-x-1 inline-block">
                         Crypto
                       </Link>
                     </li>

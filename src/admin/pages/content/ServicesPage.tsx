@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { cloudflareDb } from '@/lib/cloudflare';
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiLayout } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
 interface Service {
@@ -38,7 +38,7 @@ const ServicesPage: React.FC = () => {
         'SELECT service_id, COUNT(*) as count FROM categories GROUP BY service_id'
       );
 
-      // Get content count for each service  
+      // Get content count for each service
       const contentCountQuery = await cloudflareDb.query(
         'SELECT service_id, COUNT(*) as count FROM posts GROUP BY service_id'
       );
@@ -126,7 +126,7 @@ const ServicesPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       {service.icon && (
-                        <div 
+                        <div
                           className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: service.color || '#e5e7eb' }}
                         >
@@ -165,6 +165,13 @@ const ServicesPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-3">
+                      <Link
+                        to={`/admin/services/edit/${service.slug}/experience`}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Design public page experience"
+                      >
+                        <FiLayout className="h-5 w-5" />
+                      </Link>
                       <Link
                         to={`/admin/services/edit/${service.slug}`}
                         className="text-blue-600 hover:text-blue-900"

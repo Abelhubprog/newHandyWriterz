@@ -8,6 +8,7 @@ export interface HandyWriterzLogoProps {
   size?: 'sm' | 'md' | 'lg';
   asLink?: boolean;
   linkProps?: any;
+  style?: React.CSSProperties;
 }
 
 export const HandyWriterzLogo: React.FC<HandyWriterzLogoProps> = ({

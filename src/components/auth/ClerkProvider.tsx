@@ -8,7 +8,7 @@ interface ClerkProviderProps {
 
 /**
  * Clerk Authentication Provider
- * 
+ *
  * Wraps the application with Clerk authentication provider using
  * centralized configuration from config/clerk.ts
  */
@@ -17,7 +17,6 @@ const ClerkProvider: React.FC<ClerkProviderProps> = ({ children }) => {
     <ClerkProviderBase
       publishableKey={clerkConfig.publishableKey}
       appearance={clerkConfig.appearance}
-      navigate={(to) => window.history.pushState(null, '', to)}
     >
       {children}
     </ClerkProviderBase>

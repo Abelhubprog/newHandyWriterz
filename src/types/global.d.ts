@@ -109,57 +109,11 @@ declare module 'coinbase-commerce' {
 }
 
 // ShadCN UI component exports
-declare module '@/components/ui/button' {
-  import { ComponentType, ButtonHTMLAttributes } from 'react';
-  export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-    size?: 'default' | 'sm' | 'lg' | 'icon';
-    asChild?: boolean;
-  }
-  export const Button: ComponentType<ButtonProps>;
-}
-
-declare module '@/components/ui/input' {
-  import { ComponentType, InputHTMLAttributes } from 'react';
-  export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
-  export const Input: ComponentType<InputProps>;
-}
-
-declare module '@/components/ui/card' {
-  import { ComponentType, HTMLAttributes } from 'react';
-  export const Card: ComponentType<HTMLAttributes<HTMLDivElement>>;
-  export const CardContent: ComponentType<HTMLAttributes<HTMLDivElement>>;
-  export const CardHeader: ComponentType<HTMLAttributes<HTMLDivElement>>;
-  export const CardTitle: ComponentType<HTMLAttributes<HTMLHeadingElement>>;
-  export const CardDescription: ComponentType<HTMLAttributes<HTMLParagraphElement>>;
-  export const CardFooter: ComponentType<HTMLAttributes<HTMLDivElement>>;
-}
-
-declare module '@/components/ui/progress' {
-  import { ComponentType } from 'react';
-  export interface ProgressProps {
-    value?: number;
-    className?: string;
-  }
-  export const Progress: ComponentType<ProgressProps>;
-}
-
-declare module '@/components/ui/scroll-area' {
-  import { ComponentType, HTMLAttributes } from 'react';
-  export const ScrollArea: ComponentType<HTMLAttributes<HTMLDivElement>>;
-}
-
-declare module '@/components/ui/tabs' {
-  import { ComponentType, HTMLAttributes } from 'react';
-  export const Tabs: ComponentType<HTMLAttributes<HTMLDivElement> & { value?: string; onValueChange?: (value: string) => void }>;
-  export const TabsList: ComponentType<HTMLAttributes<HTMLDivElement>>;
-  export const TabsTrigger: ComponentType<HTMLAttributes<HTMLButtonElement> & { value: string }>;
-}
+// ShadCN-style ambient module declarations removed to avoid conflicts with concrete implementations under src/components/ui/**
 
 // File upload service types
 declare module '@/services/fileUploadService' {
   export function formatFileSize(bytes: number): string;
-  export function getFileIcon(filename: string): string;
 }
 
 // D1 client modules (replacing Supabase)
@@ -183,26 +137,6 @@ declare module '@/lib/supabaseClient' {
 
 // Types are now defined in @/types/content
 
-// Auth hook
-declare module '@/hooks/useAuth' {
-  export interface User {
-    id: string;
-    email: string;
-    name?: string;
-    avatar?: string;
-  }
-
-  export interface AuthState {
-    user: User | null;
-    loading: boolean;
-    error: string | null;
-  }
-
-  export function useAuth(): AuthState & {
-    signIn: (email: string, password: string) => Promise<void>;
-    signOut: () => Promise<void>;
-    signUp: (email: string, password: string, name?: string) => Promise<void>;
-  };
-}
+// Removed ambient declaration for useAuth to avoid redeclaration conflicts with actual implementation
 
 import { useUser, useAuth } from '@clerk/clerk-react';

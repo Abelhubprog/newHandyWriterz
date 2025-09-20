@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { Send, Paperclip, MoreVertical, Clock } from 'lucide-react';
-import { d1Client as supabase } from '../../lib/d1Client';
+import database from '../../lib/d1Client';
 
 interface Message {
   id: string;

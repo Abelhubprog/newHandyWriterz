@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FLAGS } from '@/config/flags';
 import { useUser, useAuth, SignInButton } from '@clerk/clerk-react';
 import { toast } from 'react-hot-toast';
 import {
@@ -53,6 +54,13 @@ const PublicCommentSystem: React.FC<PublicCommentSystemProps> = ({
   allowAnonymous = false,
   moderationRequired = true
 }) => {
+  if (!FLAGS.engagement) {
+    return (
+      <div className={`rounded-lg border bg-card text-card-foreground shadow-sm p-4 ${className}`}>
+        <p className="text-sm text-muted-foreground">Comments are currently disabled.</p>
+      </div>
+    );
+  }
   const { user, isLoaded } = useUser();
   const { isSignedIn } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);

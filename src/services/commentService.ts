@@ -10,7 +10,7 @@ import { Comment } from '@/types/blog';
 export async function getComments(postId: string): Promise<Comment[]> {
   try {
     const comments = await databaseService.read('comments', { post_id: postId });
-    
+
     // Transform to expected format
     return comments.map(comment => ({
       id: comment.id,
@@ -60,7 +60,7 @@ export async function createComment(
     };
 
     const result = await databaseService.create('comments', commentData);
-    
+
     // If this is a reply, increment parent's reply count
     if (parentId) {
       try {
@@ -111,7 +111,7 @@ export async function updateComment(commentId: string, content: string): Promise
 
     // Fetch and return the updated comment
     const comments = await databaseService.read('comments', { id: commentId });
-    
+
     if (comments.length > 0) {
       const comment = comments[0];
       return {
@@ -147,10 +147,10 @@ export async function deleteComment(commentId: string): Promise<boolean> {
   try {
     // Get the comment to check if it has a parent
     const comments = await databaseService.read('comments', { id: commentId });
-    
+
     if (comments.length > 0) {
       const comment = comments[0];
-      
+
       // If this is a reply, decrement parent's reply count
       if (comment.parent_id) {
         try {
@@ -164,7 +164,7 @@ export async function deleteComment(commentId: string): Promise<boolean> {
         } catch (error) {
         }
       }
-      
+
       // Delete all replies to this comment first
       try {
         const replies = await databaseService.read('comments', { parent_id: commentId });
@@ -191,7 +191,7 @@ export async function deleteComment(commentId: string): Promise<boolean> {
 export async function getCommentReplies(parentId: string): Promise<Comment[]> {
   try {
     const replies = await databaseService.read('comments', { parent_id: parentId });
-    
+
     return replies.map(reply => ({
       id: reply.id,
       content: reply.content,

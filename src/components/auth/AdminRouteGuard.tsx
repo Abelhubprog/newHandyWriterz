@@ -5,14 +5,14 @@ import { Loader2 } from 'lucide-react';
 
 /**
  * AdminRouteGuard - Protects admin routes using Clerk session claims
- * 
+ *
  * This component checks if the user has admin role in their session claims.
  * It should be used with React Router's nested routing to protect admin areas.
- * 
+ *
  * Prerequisites:
  * 1. JWT Template configured in Clerk Dashboard with custom claims
  * 2. User metadata with role: "admin" set for admin users
- * 
+ *
  * Usage with React Router:
  * <Route element={<AdminRouteGuard />}>
  *   <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -22,9 +22,9 @@ import { Loader2 } from 'lucide-react';
 
 const AdminRouteGuard: React.FC = () => {
   const { isLoaded, isSignedIn, sessionClaims } = useAuth();
-
-  // Extract role from session claims (set via JWT template)
-  const userRole = sessionClaims?.metadata?.role;
+  // Safely extract role from session claims (claims type is unknown by default)
+  const claims: any = sessionClaims as any;
+  const userRole: string | undefined = claims?.metadata?.role;
   const isAdmin = userRole === 'admin';
 
   // Show loading state while Clerk is loading

@@ -91,7 +91,7 @@ export const authService = {
     try {
       const profiles = await databaseService.read('profiles', { user_id: userId });
       const profile = profiles?.[0];
-      
+
       if (!profile) return null;
 
       return {

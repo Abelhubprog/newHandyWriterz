@@ -2,19 +2,24 @@ import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Field, FormMessage, FormDescription } from './form';
 
-export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'checked' | 'onChange'> {
   label?: string;
   description?: string;
   error?: string;
+  // shadcn compatibility
+  // accept '' as some datatables pass empty string when mixed state resolves; we'll coerce
+  checked?: boolean | "indeterminate" | "";
+  onCheckedChange?: (checked: boolean | "indeterminate") => void;
 }
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, description, error, id, ...props }, ref) => {
+  ({ className, label, description, error, id, checked, onCheckedChange, ...props }, ref) => {
     const checkboxId = id || props.name;
     const descriptionId = description ? `${checkboxId}-description` : undefined;
     const errorId = error ? `${checkboxId}-error` : undefined;
 
-    return (
+  const normalizedChecked = checked === "indeterminate" ? false : checked === "" ? false : checked;
+  return (
       <Field className="flex items-start gap-3">
         <div className="relative flex h-5 items-center">
           <input
@@ -31,10 +36,12 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             )}
             aria-invalid={!!error}
             aria-describedby={
-              error ? errorId : 
-              description ? descriptionId : 
+              error ? errorId :
+              description ? descriptionId :
               undefined
             }
+            checked={normalizedChecked as boolean | undefined}
+            onChange={(e) => onCheckedChange ? onCheckedChange(e.target.checked) : (props as any).onChange?.(e)}
             {...props}
           />
         </div>
@@ -76,12 +83,12 @@ export interface CheckboxGroupProps {
   className?: string;
 }
 
-export function CheckboxGroup({ 
-  children, 
-  label, 
+export function CheckboxGroup({
+  children,
+  label,
   description,
   error,
-  className 
+  className
 }: CheckboxGroupProps) {
   const groupId = label?.toLowerCase().replace(/\s+/g, '-');
   const descriptionId = description ? `${groupId}-description` : undefined;
@@ -99,13 +106,13 @@ export function CheckboxGroup({
           {description}
         </FormDescription>
       )}
-      <div 
+      <div
         className="space-y-3"
         role="group"
         aria-labelledby={groupId}
         aria-describedby={
-          error ? errorId : 
-          description ? descriptionId : 
+          error ? errorId :
+          description ? descriptionId :
           undefined
         }
       >

@@ -19,7 +19,7 @@ export const adminService = {
   async getPosts() {
     try {
       const posts = await databaseService.getPosts();
-      
+
       return posts.map((post: any) => ({
         id: post.id.toString(),
         title: post.title,
@@ -70,7 +70,7 @@ export const adminService = {
     try {
       const post = await databaseService.getPostBySlug(id); // Assuming id could be slug
       if (!post) return null;
-      
+
       return {
         id: post.id.toString(),
         title: post.title,
@@ -192,7 +192,7 @@ export const adminService = {
   async getCategories() {
     try {
       const categories = await databaseService.getCategories();
-      
+
       return categories.map((category: any) => ({
         id: category.id.toString(),
         name: category.name,
@@ -212,7 +212,7 @@ export const adminService = {
         slug: category.slug,
         service_type: category.service
       });
-      
+
       return result.id;
     } catch (error) {
       throw error;
@@ -226,7 +226,7 @@ export const adminService = {
         slug: category.slug,
         service_type: category.service
       });
-      
+
       return id;
     } catch (error) {
       throw error;
@@ -246,7 +246,7 @@ export const adminService = {
   async getUsers() {
     try {
       const users = await databaseService.read('profiles');
-      
+
       return users.map((user: any) => ({
         id: user.id,
         name: user.full_name || user.display_name,
@@ -270,7 +270,7 @@ export const adminService = {
         avatar_url: user.avatar,
         status: user.status
       });
-      
+
       return id;
     } catch (error) {
       throw error;
@@ -319,7 +319,7 @@ export const adminService = {
         { service: 'Crypto', likes: 123, comments: 89, shares: 43 }
       ]
     };
-    
+
     return mockAnalytics;
   },
 

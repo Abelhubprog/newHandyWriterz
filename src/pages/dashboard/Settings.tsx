@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  Paper, 
-  Switch, 
+import {
+  Container,
+  Box,
+  Typography,
+  Paper,
+  Switch,
   FormControlLabel,
   Button,
   Divider,
@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@clerk/clerk-react';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import toast from 'react-hot-toast';
 
@@ -43,19 +43,19 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
-        const { data, error } = await supabase
+  const { data, error } = await database
           .from('user_settings')
           .select('*')
           .eq('user_id', user.id)
           .single();
-          
+
         if (error && error.code !== 'PGSQL_ERROR') {
           throw error;
         }
-        
+
         if (data) {
           setSettings({
             emailNotifications: data.email_notifications ?? true,
@@ -71,7 +71,7 @@ const Settings: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     if (user) {
       fetchSettings();
     } else {
@@ -90,10 +90,10 @@ const Settings: React.FC = () => {
   // Save settings
   const handleSave = async () => {
     if (!user) return;
-    
+
     try {
       setSaving(true);
-      const { error } = await supabase
+  const { error } = await database
         .from('user_settings')
         .upsert({
           user_id: user.id,
@@ -104,9 +104,9 @@ const Settings: React.FC = () => {
           two_factor_auth: settings.twoFactorAuth,
           updated_at: new Date().toISOString()
         });
-        
+
       if (error) throw error;
-      
+
       toast.success('Settings saved successfully');
     } catch (error) {
       toast.error('Failed to save settings');
@@ -135,7 +135,7 @@ const Settings: React.FC = () => {
               <h3 className="font-medium text-orange-800">Authentication required</h3>
               <p className="text-orange-700 mt-1">You need to be logged in to view your settings.</p>
               <div className="mt-3">
-                <button 
+                <button
                   onClick={() => navigate('/sign-in')}
                   className="px-4 py-2 bg-orange-600 text-white rounded-md text-sm hover:bg-orange-700"
                 >
@@ -168,17 +168,17 @@ const Settings: React.FC = () => {
       <Helmet>
         <title>Settings - HandyWriterz</title>
       </Helmet>
-      
+
       <Box my={4}>
         <Typography variant="h4" component="h1" gutterBottom>
           Account Settings
         </Typography>
-        
+
         <Paper elevation={0} sx={{ p: 3, mt: 3, border: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h6" gutterBottom>
             Notification Preferences
           </Typography>
-          
+
           <Box mt={2}>
             <FormControlLabel
               control={
@@ -192,7 +192,7 @@ const Settings: React.FC = () => {
               label="Email notifications"
             />
           </Box>
-          
+
           <Box mt={1}>
             <FormControlLabel
               control={
@@ -206,7 +206,7 @@ const Settings: React.FC = () => {
               label="SMS notifications"
             />
           </Box>
-          
+
           <Box mt={1}>
             <FormControlLabel
               control={
@@ -220,13 +220,13 @@ const Settings: React.FC = () => {
               label="Marketing emails"
             />
           </Box>
-          
+
           <Divider sx={{ my: 3 }} />
-          
+
           <Typography variant="h6" gutterBottom>
             Appearance
           </Typography>
-          
+
           <Box mt={2}>
             <FormControlLabel
               control={
@@ -240,13 +240,13 @@ const Settings: React.FC = () => {
               label="Dark mode"
             />
           </Box>
-          
+
           <Divider sx={{ my: 3 }} />
-          
+
           <Typography variant="h6" gutterBottom>
             Security
           </Typography>
-          
+
           <Box mt={2}>
             <FormControlLabel
               control={
@@ -265,10 +265,10 @@ const Settings: React.FC = () => {
               </Alert>
             )}
           </Box>
-          
+
           <Box mt={4} display="flex" justifyContent="flex-end">
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               color="primary"
               onClick={handleSave}
               disabled={saving}
@@ -282,4 +282,4 @@ const Settings: React.FC = () => {
   );
 };
 
-export default Settings; 
+export default Settings;

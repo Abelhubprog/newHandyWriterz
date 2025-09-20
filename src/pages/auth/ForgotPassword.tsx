@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { FaUser } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/providers/AuthProvider';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');

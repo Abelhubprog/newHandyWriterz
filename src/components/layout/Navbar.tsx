@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { performLogout } from '@/utils/authLogout';
@@ -6,12 +7,13 @@ import { AuthModal } from '../auth/AuthModal';
 
 export function Navbar() {
   const { user } = useAuth();
+  const { signOut } = useClerk();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
   const handleSignOut = async () => {
     try {
-      await performLogout();
+      await performLogout(signOut);
     } catch (error) {
     }
   };
@@ -100,3 +102,4 @@ export function Navbar() {
     </>
   );
 }
+

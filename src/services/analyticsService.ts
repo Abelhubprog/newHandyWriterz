@@ -43,17 +43,17 @@ export const analyticsService = {
     try {
       // Get posts data from database service
       const posts = await databaseService.getPosts();
-      
+
       // Calculate metrics from available data
       const totalViews = posts.reduce((sum, post) => sum + (post.view_count || 0), 0);
       const contentCount = posts.length;
-      
+
       // Get mock data for users (would be from real user service in production)
       const totalUsers = 150; // Mock value
-      
+
       // Calculate engagement rate from mock data
       const engagementRate = 68.5;
-      
+
       return {
         totalViews,
         totalUsers,
@@ -67,7 +67,7 @@ export const analyticsService = {
         }
       };
     } catch (error) {
-      
+
       // Return mock data as fallback
       return {
         totalViews: 12543,
@@ -83,7 +83,7 @@ export const analyticsService = {
       };
     }
   },
-  
+
   /**
    * Get traffic data for the specified timeframe
    */
@@ -91,16 +91,16 @@ export const analyticsService = {
     try {
       // Get date range based on timeframe
       const { startDate, endDate, interval, format } = this.getTimeframeParams(timeframe);
-      
+
       // For now, use mock data until Cloudflare analytics are implemented
       // In production, this would query the database for actual traffic data
-      
+
       // Create labels based on timeframe
       const labels = this.generateLabels(timeframe);
-      
+
       // Use mock data for demonstration
       const visits = this.getMockDataForTimeframe(timeframe);
-      
+
       return {
         labels,
         datasets: [
@@ -114,11 +114,11 @@ export const analyticsService = {
         ]
       };
     } catch (error) {
-      
+
       // Return mock data as fallback
       const labels = this.generateLabels(timeframe);
       const visits = this.getMockDataForTimeframe(timeframe);
-      
+
       return {
         labels,
         datasets: [
@@ -133,20 +133,20 @@ export const analyticsService = {
       };
     }
   },
-  
+
   /**
    * Get engagement data (likes, comments, shares) for the specified timeframe
    */
   async getEngagementData(timeframe: TimeFrame): Promise<MetricData> {
     // Get date range based on timeframe
     const { startDate, endDate, interval } = this.getTimeframeParams(timeframe);
-    
+
     // In a real app, you would query the database for likes, comments, and shares
     // For simplicity, we'll use mock data
-    
+
     // Create labels based on timeframe
     const labels = this.generateLabels(timeframe);
-    
+
     return {
       labels,
       datasets: [
@@ -171,7 +171,7 @@ export const analyticsService = {
       ]
     };
   },
-  
+
   /**
    * Get top performing content
    */
@@ -179,7 +179,7 @@ export const analyticsService = {
     try {
       // Get posts from database service and sort by views
       const posts = await databaseService.getPosts();
-      
+
       if (posts && posts.length > 0) {
         // Sort by view count and take top 5
         const topPosts = posts
@@ -192,10 +192,10 @@ export const analyticsService = {
             engagement: (post.likes_count || 0) + (post.comments_count || 0) + (post.shares_count || 0),
             change: Math.floor(Math.random() * 20) - 10 // Mock change percentage
           }));
-        
+
         return topPosts;
       }
-      
+
       // Fallback to mock data if no results
       return [
         { id: '1', title: 'Child Health Nursing - Complete Guide', views: 2543, engagement: 224, change: 12 },
@@ -205,7 +205,7 @@ export const analyticsService = {
         { id: '5', title: 'AI and Machine Learning Trends', views: 1234, engagement: 89, change: -2 }
       ];
     } catch (error) {
-      
+
       // Return mock data as fallback
       return [
         { id: '1', title: 'Child Health Nursing - Complete Guide', views: 2543, engagement: 224, change: 12 },
@@ -216,7 +216,7 @@ export const analyticsService = {
       ];
     }
   },
-  
+
   /**
    * Get content breakdown by category
    */
@@ -224,17 +224,17 @@ export const analyticsService = {
     try {
       // Get categories from database service
       const categories = await databaseService.getCategories();
-      
+
       if (categories && categories.length > 0) {
         // Calculate percentages based on category counts
         const total = categories.reduce((sum, cat) => sum + (cat.post_count || 0), 0);
-        
+
         return categories.map(cat => ({
           category: cat.name,
           percentage: total > 0 ? Math.round(((cat.post_count || 0) / total) * 100) : 0
         }));
       }
-      
+
       // Fallback to mock data
       return [
         { category: 'Healthcare', percentage: 65 },
@@ -243,7 +243,7 @@ export const analyticsService = {
         { category: 'Research', percentage: 5 }
       ];
     } catch (error) {
-      
+
       // Return mock data as fallback
       return [
         { category: 'Healthcare', percentage: 65 },
@@ -253,46 +253,46 @@ export const analyticsService = {
       ];
     }
   },
-  
+
   /**
    * Get recent user activity for the activity feed
    */
   async getRecentActivity(limit = 5) {
     // In a real app, you would query various activity tables
     // and combine the results in chronological order
-    
+
     // Mock data for demonstration
     return [
-      { 
-        id: '1', 
-        type: 'post_created', 
+      {
+        id: '1',
+        type: 'post_created',
         user: { id: '1', name: 'Emma Rodriguez', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
         content: 'Managing Acute Respiratory Conditions in Children',
         timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() // 2 hours ago
       },
-      { 
-        id: '2', 
-        type: 'user_joined', 
+      {
+        id: '2',
+        type: 'user_joined',
         user: { id: '2', name: 'David Thompson', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
         timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
       },
-      { 
-        id: '3', 
-        type: 'post_updated', 
+      {
+        id: '3',
+        type: 'post_updated',
         user: { id: '3', name: 'Sarah Johnson', avatar: 'https://randomuser.me/api/portraits/women/68.jpg' },
         content: 'Developmental Milestones: Assessment and Nursing Interventions',
         timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days ago
       },
-      { 
-        id: '4', 
-        type: 'analytics_report', 
+      {
+        id: '4',
+        type: 'analytics_report',
         timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // 1 week ago
       }
     ];
   },
-  
+
   // Helper methods for generating data
-  
+
   /**
    * Get timeframe parameters for queries
    */
@@ -301,7 +301,7 @@ export const analyticsService = {
     let startDate = new Date();
     let interval: string;
     let format: string;
-    
+
     switch (timeframe) {
       case 'day':
         startDate.setHours(0, 0, 0, 0);
@@ -328,10 +328,10 @@ export const analyticsService = {
         interval = 'day';
         format = 'Do';
     }
-    
+
     return { startDate, endDate, interval, format };
   },
-  
+
   /**
    * Generate labels for the specified timeframe
    */
@@ -349,7 +349,7 @@ export const analyticsService = {
         return ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
     }
   },
-  
+
   /**
    * Get mock data for a specific timeframe and dataset
    */
@@ -361,9 +361,9 @@ export const analyticsService = {
       comments: 0.05,
       shares: 0.02
     };
-    
+
     const scale = scaleFactor[datasetType as keyof typeof scaleFactor];
-    
+
     switch (timeframe) {
       case 'day':
         return [120, 90, 70, 240, 350, 460, 380, 290].map(v => Math.round(v * scale));
@@ -379,4 +379,4 @@ export const analyticsService = {
         return [8500, 11000, 9500, 12300].map(v => Math.round(v * scale));
     }
   }
-}; 
+};

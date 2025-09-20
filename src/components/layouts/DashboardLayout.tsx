@@ -13,13 +13,14 @@ import {
 } from 'lucide-react';
 import HandyWriterzLogo from '@/components/HandyWriterzLogo';
 import { toast } from 'react-hot-toast';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { performLogout } from '@/utils/authLogout';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useUser();
+  const { signOut } = useClerk();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
@@ -35,7 +36,7 @@ const DashboardLayout: React.FC = () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await performLogout();
+      await performLogout(signOut);
     } catch (err) {
       console.error('Logout failed', err);
       toast.error('Logout failed. Redirecting...');
@@ -168,3 +169,4 @@ const DashboardLayout: React.FC = () => {
 };
 
 export default DashboardLayout;
+

@@ -12,6 +12,7 @@ export const buttonVariants = cva(
         outline: 'border border-gray-300 bg-transparent hover:bg-gray-50 focus:ring-gray-500',
         ghost: 'hover:bg-gray-50 hover:text-brand-600 focus:ring-gray-500',
         link: 'text-brand-600 hover:text-brand-700 underline-offset-4 hover:underline focus:ring-brand-500',
+        destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
       },
       size: {
         default: 'h-10 px-4 py-2',

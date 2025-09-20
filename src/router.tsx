@@ -5,7 +5,9 @@ import {
   Route,
   Navigate,
   createBrowserRouter,
-  Outlet // Import Outlet to render nested routes
+  Outlet, // Import Outlet to render nested routes
+  useRouteError,
+  Link
 } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Toaster } from 'react-hot-toast';
@@ -49,7 +51,6 @@ const ProfileComponent: React.FC = () => (
 // Layouts
 import RootLayoutComponent from './components/layouts/RootLayout'; // Renamed import to avoid conflict with RootLayoutWithOutlet
 import DashboardLayout from './components/layouts/DashboardLayout';
-import AdminLayout from './components/layouts/AdminLayout';
 
 // Auth components
 import AuthGuard from './components/auth/AuthGuard';
@@ -57,7 +58,7 @@ import AdminGuard from './components/auth/AdminGuard';
 import { Loader } from './components/ui/Loader';
 
 // Admin components
-import Admin from './admin/Admin';
+import { adminRoutes } from './features/router';
 
 // Error component
 const ErrorFallback: React.FC<{ error: Error; resetErrorBoundary: () => void }> = ({ error, resetErrorBoundary }) => (
@@ -99,13 +100,28 @@ const withSuspenseAndError = (Component: React.ComponentType<any>) => {
 };
 
 // Root layout with outlet for nested routes
+const RouteErrorElement: React.FC = () => {
+  const err = useRouteError() as any;
+  const message = err?.statusText || err?.message || 'Something went wrong while loading this page.';
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ maxWidth: 560, width: '100%', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>We hit a snag</h2>
+        <p style={{ color: '#64748b', marginBottom: 16 }}>{message}</p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <button onClick={() => window.location.reload()} style={{ padding: '8px 16px', borderRadius: 999, background: '#0f172a', color: '#fff' }}>Try again</button>
+          <a href="/" style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #e2e8f0', color: '#334155' }}>Go home</a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const RootLayoutWithOutlet = () => {
-  // RootLayoutComponent is already imported, no need to lazy load here again
+  // RootLayoutComponent already renders its own <Outlet /> internally
   return (
     <Suspense fallback={<div>Loading layout...</div>}>
-      <RootLayoutComponent> {/* Render the actual RootLayout component */}
-        <Outlet /> {/* This is where the child routes will be rendered */}
-      </RootLayoutComponent>
+      <RootLayoutComponent />
     </Suspense>
   );
 };
@@ -118,7 +134,6 @@ const Messages = lazy(() => import('./components/Messages/MessageCenter'));
 const Orders = lazy(() => import('./pages/dashboard/Orders'));
 const Settings = lazy(() => import('./pages/dashboard/Settings'));
 const DocumentsUpload = lazy(() => import('./pages/dashboard/DocumentsUpload'));
-const AdminRoutes = lazy(() => import('./admin/Routes')); // This seems to be a component that handles sub-routes
 const CheckTurnitin = lazy(() => import('./pages/tools/check-turnitin'));
 const LearningHub = lazy(() => import('./pages/LearningHub'));
 const About = lazy(() => import('./pages/About'));
@@ -136,13 +151,17 @@ const SignUp = lazy(() => import('./pages/auth/SignUp'));
 const AdminLogin = lazy(() => import('./pages/auth/admin-login'));
 const MfaChallenge = lazy(() => import('./pages/auth/mfa-challenge'));
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
-const AdultHealthNursing = lazy(() => import('./pages/services/adult-health-nursing'));
-const MentalHealthNursing = lazy(() => import('./pages/services/mental-health-nursing'));
-const ChildNursing = lazy(() => import('./pages/services/child-nursing'));
-const SpecialEducation = lazy(() => import('./pages/services/special-education'));
-const SocialWork = lazy(() => import('./pages/services/social-work'));
-const AdvancedPracticeNursing = lazy(() => import('./pages/services/advanced-practice-nursing'));
-const Crypto = lazy(() => import('./pages/services/crypto'));
+
+// NEW DOMAIN PAGES
+const AdultHealthDomain = lazy(() => import('./pages/domains/AdultHealth'));
+const MentalHealthDomain = lazy(() => import('./pages/domains/MentalHealth'));
+const ChildNursingDomain = lazy(() => import('./pages/domains/ChildNursing'));
+const SocialWorkDomain = lazy(() => import('./pages/domains/SocialWork'));
+const TechnologyDomain = lazy(() => import('./pages/domains/Technology'));
+const AIDomain = lazy(() => import('./pages/domains/AI'));
+const CryptoDomain = lazy(() => import('./pages/domains/Crypto'));
+
+// LEGACY SERVICE PAGES (to be archived) – components removed; redirect routes handle these paths
 const ApiTestPage = lazy(() => import('./pages/ApiTestPage'));
 const NotFound = lazy(() => import('./pages/not-found'));
 
@@ -151,7 +170,8 @@ const NotFound = lazy(() => import('./pages/not-found'));
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <RootLayoutWithOutlet />, // Use the wrapper component for the root layout
+    element: <RootLayoutWithOutlet />,
+    errorElement: <RouteErrorElement />, // Use the wrapper component for the root layout
     children: [ // Corrected array syntax
       // Public Routes
       { path: "", element: withSuspenseAndError(Homepage)() },
@@ -167,14 +187,26 @@ export const router = createBrowserRouter([
       { path: "payment", element: withSuspenseAndError(Payment)() },
       { path: "api-test", element: withSuspenseAndError(ApiTestPage)() },
 
-      // Service Pages
-      { path: "services/adult-health-nursing", element: withSuspenseAndError(AdultHealthNursing)() },
-      { path: "services/mental-health-nursing", element: withSuspenseAndError(MentalHealthNursing)() },
-      { path: "services/child-nursing", element: withSuspenseAndError(ChildNursing)() },
-      { path: "services/special-education", element: withSuspenseAndError(SpecialEducation)() },
-      { path: "services/social-work", element: withSuspenseAndError(SocialWork)() },
-      { path: "services/advanced-practice-nursing", element: withSuspenseAndError(AdvancedPracticeNursing)() },
-      { path: "services/crypto", element: withSuspenseAndError(Crypto)() },
+      // Domain Pages (specific)
+      { path: "d/adult-health", element: withSuspenseAndError(AdultHealthDomain)() },
+      { path: "d/mental-health", element: withSuspenseAndError(MentalHealthDomain)() },
+      { path: "d/child-nursing", element: withSuspenseAndError(ChildNursingDomain)() },
+      { path: "d/social-work", element: withSuspenseAndError(SocialWorkDomain)() },
+      { path: "d/technology", element: withSuspenseAndError(TechnologyDomain)() },
+      { path: "d/ai", element: withSuspenseAndError(AIDomain)() },
+      { path: "d/crypto", element: withSuspenseAndError(CryptoDomain)() },
+
+      // Legacy Service Pages (to be archived/redirected)
+      { path: "services/adult-health-nursing", element: <Navigate to="/d/adult-health" replace /> },
+      { path: "services/mental-health-nursing", element: <Navigate to="/d/mental-health" replace /> },
+      { path: "services/child-nursing", element: <Navigate to="/d/child-nursing" replace /> },
+      { path: "services/social-work", element: <Navigate to="/d/social-work" replace /> },
+      { path: "services/crypto", element: <Navigate to="/d/crypto" replace /> },
+      { path: "services/ai", element: <Navigate to="/d/ai" replace /> },
+
+  // Other service pages
+  { path: "services/special-education", element: <Navigate to="/services" replace /> },
+  { path: "services/advanced-practice-nursing", element: <Navigate to="/services" replace /> },
 
       // Tool Pages
       { path: "tools/check-turnitin", element: withSuspenseAndError(CheckTurnitin)() },
@@ -213,6 +245,7 @@ export const router = createBrowserRouter([
   {
     path: "/dashboard",
     element: <AuthGuard><DashboardLayout /></AuthGuard>,
+    errorElement: <RouteErrorElement />,
     children: [ // Corrected array syntax
       { path: "", element: withSuspenseAndError(Dashboard)() },
       { path: "profile", element: withSuspenseAndError(Profile)() },
@@ -225,16 +258,9 @@ export const router = createBrowserRouter([
     ]
   },
 
-  // Protected Admin Routes - Use the Admin component from admin directory
-  {
-    path: "/admin/*",
-    element: <Admin />
-  },
+  // NEW Protected Admin Routes
+  ...adminRoutes,
 
   // 404 Not Found
   { path: "*", element: withSuspenseAndError(NotFound)() },
-], {
-  future: {
-    v7_startTransition: true,
-  },
-});
+]);

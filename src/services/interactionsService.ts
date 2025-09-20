@@ -31,7 +31,7 @@ export const interactionsService = {
    * Subscribe to comments for a service (mock implementation)
    */
   subscribeToComments(serviceId: string, onComment: CommentListener): () => void {
-    
+
     // Mock subscription - return unsubscribe function
     return () => {
     };
@@ -41,7 +41,7 @@ export const interactionsService = {
    * Subscribe to likes for a service (mock implementation)
    */
   subscribeToLikes(serviceId: string, onLike: LikeListener): () => void {
-    
+
     // Mock subscription - return unsubscribe function
     return () => {
     };
@@ -53,7 +53,7 @@ export const interactionsService = {
   async getComments(serviceId: string): Promise<Comment[]> {
     try {
       const comments = await databaseService.read('comments', { service_id: serviceId });
-      
+
       return comments.map(comment => ({
         id: comment.id,
         content: comment.content,
@@ -93,7 +93,7 @@ export const interactionsService = {
       };
 
       const result = await databaseService.create('comments', commentData);
-      
+
       return {
         id: result.id,
         content,
@@ -119,7 +119,7 @@ export const interactionsService = {
         content,
         updated_at: new Date().toISOString()
       });
-      
+
       return true;
     } catch (error) {
       return false;
@@ -147,7 +147,7 @@ export const interactionsService = {
         is_approved: true,
         updated_at: new Date().toISOString()
       });
-      
+
       return true;
     } catch (error) {
       return false;
@@ -160,7 +160,7 @@ export const interactionsService = {
   async getLikes(serviceId: string): Promise<ContentLike[]> {
     try {
       const likes = await databaseService.read('content_likes', { service_id: serviceId });
-      
+
       return likes.map(like => ({
         id: like.id,
         serviceId: like.service_id,
@@ -194,7 +194,7 @@ export const interactionsService = {
       };
 
       const result = await databaseService.create('content_likes', likeData);
-      
+
       return {
         id: result.id,
         serviceId,
@@ -220,7 +220,7 @@ export const interactionsService = {
       if (likes.length > 0) {
         await databaseService.delete('content_likes', likes[0].id);
       }
-      
+
       return true;
     } catch (error) {
       return false;
@@ -260,7 +260,7 @@ export const interactionsService = {
         service_id: serviceId,
         user_id: userId
       });
-      
+
       return likes.length > 0;
     } catch (error) {
       return false;

@@ -33,7 +33,7 @@ const Footer: React.FC = () => {
   ];
 
   const serviceLinks = services?.map(service => ({
-    label: service.title,
+    label: (service as any).title ?? service.name,
     path: `/services/${service.slug}`,
   })) || [
     { label: 'Adult Health Nursing', path: '/services/adult-health-nursing' },

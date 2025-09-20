@@ -27,33 +27,33 @@ export async function scanFile(filePath: string): Promise<boolean> {
 
     // Get file stats
     const stats = fs.statSync(filePath);
-    
+
     // Check file size
     if (stats.size > MAX_FILE_SIZE) {
       return false;
     }
-    
+
     // Check file extension
     const ext = path.extname(filePath).toLowerCase();
     if (!ALLOWED_FILE_TYPES.has(ext)) {
       return false;
     }
-    
+
     // Read file content
     const buffer = fs.readFileSync(filePath);
-    
+
     // Check file signature (magic bytes)
     if (!hasValidFileSignature(buffer, ext)) {
       return false;
     }
-    
+
     // Calculate file hash for logging/tracking
     const hash = createHash('sha256').update(buffer).digest('hex');
-    
+
     // In a production environment, you would integrate with a virus scanning service here
     // For example: ClamAV, VirusTotal API, etc.
     // For now, we'll just do basic checks
-    
+
     return true;
   } catch (error) {
     return false;
@@ -72,22 +72,22 @@ function hasValidFileSignature(buffer: Buffer, extension: string): boolean {
     case '.pdf':
       // PDF signature: %PDF-
       return buffer.length >= 4 && buffer.toString('ascii', 0, 4) === '%PDF';
-      
+
     case '.doc':
       // DOC signature: D0 CF 11 E0 A1 B1 1A E1 (MS Compound Document)
-      return buffer.length >= 8 && 
-        buffer[0] === 0xD0 && 
-        buffer[1] === 0xCF && 
-        buffer[2] === 0x11 && 
+      return buffer.length >= 8 &&
+        buffer[0] === 0xD0 &&
+        buffer[1] === 0xCF &&
+        buffer[2] === 0x11 &&
         buffer[3] === 0xE0;
-        
+
     case '.docx':
       // DOCX is a ZIP file with specific contents
       // ZIP signature: PK
-      return buffer.length >= 2 && 
-        buffer[0] === 0x50 && 
+      return buffer.length >= 2 &&
+        buffer[0] === 0x50 &&
         buffer[1] === 0x4B;
-        
+
     case '.txt':
       // Text files don't have a specific signature
       // Just check if it's valid UTF-8 or ASCII
@@ -97,7 +97,7 @@ function hasValidFileSignature(buffer: Buffer, extension: string): boolean {
       } catch (e) {
         return false;
       }
-      
+
     default:
       return false;
   }
@@ -120,15 +120,15 @@ export function isValidMimeType(mimeType: string): boolean {
 export function sanitizeFilename(filename: string): string {
   // Remove path traversal characters and other potentially dangerous characters
   let sanitized = path.basename(filename);
-  
+
   // Replace any non-alphanumeric characters except for periods, hyphens, and underscores
   sanitized = sanitized.replace(/[^a-zA-Z0-9.-_]/g, '_');
-  
+
   // Ensure the filename isn't empty
   if (!sanitized) {
     sanitized = 'file';
   }
-  
+
   return sanitized;
 }
 

@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { 
-  FiUpload, 
-  FiDownload, 
-  FiTrash2, 
-  FiMoreVertical, 
-  FiFileText, 
+import {
+  FiUpload,
+  FiDownload,
+  FiTrash2,
+  FiMoreVertical,
+  FiFileText,
   FiSearch,
   FiRefreshCw
 } from 'react-icons/fi';
-import  { formatFileSize, getFileIcon } from '../../services/fileUploadService';
-import { d1Client as supabase } from '@/lib/d1Client';
+import  { formatFileSize, getFileIconByCategory, uploadFiles } from '../../services/fileUploadService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +48,15 @@ const DocumentManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const renderFileIcon = (fileType: string) => {
+    try {
+      const Icon = getFileIconByCategory((fileType as unknown) as any);
+      return <Icon className="h-4 w-4 text-muted-foreground" />;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchDocuments();
@@ -59,26 +67,34 @@ const DocumentManager: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const { data, error: supabaseError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('uploaded_at', { ascending: false });
-
-      if (supabaseError) {
-        setError('Failed to load documents from database.');
-      } else {
-        setDocuments(data || []);
-      }
-
+      // Fetch list of files from R2 via Pages Function
+      const prefix = user ? `orders/${user.id}/` : '';
+      const res = await fetch(`/api/r2/list?prefix=${encodeURIComponent(prefix)}&delimiter=/&limit=100`);
+      if (!res.ok) throw new Error('Failed to load documents');
+      const json = await res.json();
+      const files = (json.files || []) as Array<{ key: string; size: number; lastModified: string }>;
+      // Map to Document shape (best-effort; server doesn’t have metadata rows yet)
+      const mapped: Document[] = files.map((f, i) => ({
+        id: f.key,
+        filename: f.key.split('/').pop() || `file-${i}`,
+        file_path: f.key,
+        file_url: `/r2/${f.key}`,
+        file_size: f.size,
+        file_type: 'document',
+        category: 'document',
+        description: '',
+        uploaded_at: f.lastModified || new Date().toISOString(),
+        user_id: user?.id || 'unknown',
+        status: 'approved',
+        is_public: true,
+      }));
+      setDocuments(mapped);
       setIsLoading(false);
     } catch (err) {
       setError('Failed to load documents. Please try again later.');
       setIsLoading(false);
     }
   };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -92,50 +108,18 @@ const DocumentManager: React.FC = () => {
     try {
       setIsUploading(true);
       setUploadProgress(0);
-
-      const file = selectedFile;
-      const filePath = `public/${user.id}/${file.name}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        setError('Failed to upload file to storage.');
+      const folder = `orders/${user.id}`;
+      const [result] = await uploadFiles([selectedFile], 'default', folder, (p) => setUploadProgress(p));
+      if (!result?.success) {
+        setError(result?.error || 'Upload failed');
         setIsUploading(false);
         return;
       }
-
-      const file_url = `https://handywriterz.supabase.co/storage/v1/object/public/documents/${filePath}`;
-
-      const { error: dbError } = await supabase
-        .from('documents')
-        .insert([{ 
-          filename: file.name,
-          file_path: filePath,
-          file_url: file_url,
-          file_size: file.size,
-          file_type: file.type,
-          category: 'document',
-          description: 'User uploaded document',
-          user_id: user.id,
-          status: 'pending',
-          is_public: false
-        }]);
-
-      if (dbError) {
-        setError('File uploaded but failed to save document info.');
-      } else {
-        fetchDocuments(); 
-      }
-
+      await fetchDocuments();
       setIsUploading(false);
       setSelectedFile(null);
       setUploadProgress(100);
-      if (fileInputRef.current) fileInputRef.current.value = ''; 
+      if (fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (err) {
       setError('Failed to upload file. Please try again.');
@@ -160,12 +144,12 @@ const DocumentManager: React.FC = () => {
   };
 
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = searchQuery 
+    const matchesSearch = searchQuery
       ? doc.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.description.toLowerCase().includes(searchQuery.toLowerCase()) 
+        doc.description.toLowerCase().includes(searchQuery.toLowerCase())
       : true;
-    
-    const matchesTab = activeTab === 'all' || 
+
+    const matchesTab = activeTab === 'all' ||
                        (activeTab === 'public' && doc.is_public) ||
                        (activeTab === 'private' && !doc.is_public);
 
@@ -178,7 +162,7 @@ const DocumentManager: React.FC = () => {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           <p>{error}</p>
-          <Button 
+          <Button
             className="ml-2 text-red-700"
             variant="ghost"
             onClick={() => setError(null)}
@@ -225,8 +209,8 @@ const DocumentManager: React.FC = () => {
         </div>
         {isUploading && (
           <div className="w-full bg-gray-200 rounded-full h-2.5 mt-3">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full" 
+            <div
+              className="bg-blue-600 h-2.5 rounded-full"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -240,12 +224,15 @@ const DocumentManager: React.FC = () => {
 
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <Input
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            startIcon={<Search className="h-4 w-4" />}
-          />
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
         </div>
         <Button variant="outline" onClick={fetchDocuments}>
           <RefreshCw className="h-4 w-4" />
@@ -285,7 +272,7 @@ const DocumentManager: React.FC = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      {getFileIcon(doc.file_type)}
+                      {renderFileIcon(doc.file_type)}
                       <div>
                         <CardTitle className="text-base">{doc.filename}</CardTitle>
                         <CardDescription>
@@ -313,19 +300,17 @@ const DocumentManager: React.FC = () => {
                 <CardContent>
                   <div className="flex items-center justify-end space-x-2">
                     {(doc.is_public || (user && doc.user_id === user.id)) && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </a>
+                      <Button variant="outline" size="sm" onClick={() => window.open(doc.file_url, '_blank', 'noopener,noreferrer')}>
+                        <Download className="h-4 w-4 mr-1" />
+                        Download
                       </Button>
                     )}
-                    
+
                     <Button variant="outline" size="sm" onClick={() => handleShare(doc)}>
                       <Share2 className="h-4 w-4 mr-1" />
                       Share
                     </Button>
-                    
+
                     {(isAdmin || (user && doc.user_id === user.id)) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -352,14 +337,14 @@ const DocumentManager: React.FC = () => {
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel>Admin Actions</DropdownMenuLabel>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleUpdateStatus(doc, 'approved')}
                                 disabled={doc.status === 'approved'}
                               >
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Approve
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleUpdateStatus(doc, 'rejected')}
                                 disabled={doc.status === 'rejected'}
                               >
@@ -369,11 +354,11 @@ const DocumentManager: React.FC = () => {
                             </>
                           )}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDelete(doc.id, doc.file_path)}
                             className="text-red-600"
                           >
-                            <Table.Rowash2 className="h-4 w-4 mr-2" />
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

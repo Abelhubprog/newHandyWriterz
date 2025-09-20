@@ -12,7 +12,7 @@ const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 // Check if we're in development mode
 const isDevelopment = import.meta.env.MODE === 'development';
 const isLocalhost = typeof window !== 'undefined' && (
-  window.location.hostname === 'localhost' || 
+  window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1'
 );
 
@@ -27,7 +27,7 @@ if (!isDevelopment && !isLocalhost && isDevKey(publishableKey)) {
   if (typeof window !== 'undefined') {
     setTimeout(() => {
       toast.error(
-        'Using development authentication keys in production. This has strict usage limits. Please update to production keys. Learn more: https://clerk.com/docs/deployments/overview', 
+        'Using development authentication keys in production. This has strict usage limits. Please update to production keys. Learn more: https://clerk.com/docs/deployments/overview',
         {
           duration: 10000,
           id: 'clerk-dev-key-warning',
@@ -37,20 +37,30 @@ if (!isDevelopment && !isLocalhost && isDevKey(publishableKey)) {
   }
 }
 
-export function ClerkProvider({ children }: { children: React.ReactNode }) {
+type RouterNav = (to: string) => void;
+
+export function ClerkProvider({
+  children,
+  routerPush,
+  routerReplace,
+}: {
+  children: React.ReactNode;
+  routerPush?: RouterNav;
+  routerReplace?: RouterNav;
+}) {
   const { theme } = useTheme();
 
   return (
     <BaseClerkProvider
       publishableKey={clerkConfig.publishableKey}
-      domain={clerkConfig.domain}
       signInUrl={clerkConfig.signInUrl}
       signUpUrl={clerkConfig.signUpUrl}
-      afterSignInUrl={clerkConfig.afterSignInUrl}
-      afterSignUpUrl={clerkConfig.afterSignUpUrl}
+      // Provide router adapters so Clerk doesn't try to use useNavigate before Router exists
+      routerPush={routerPush}
+      routerReplace={routerReplace}
       appearance={{
         ...clerkConfig.appearance,
-        variables: { 
+        variables: {
           ...clerkConfig.appearance.variables,
           colorBackground: theme === 'dark' ? '#0F172A' : '#FFFFFF',
           colorInputBackground: theme === 'dark' ? '#1E293B' : '#FFFFFF',

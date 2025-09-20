@@ -51,6 +51,11 @@ export { IconButton } from './IconButton';
 export { StatusBadge } from './StatusBadge';
 export { RoleBadge } from './RoleBadge';
 export { Separator } from './separator';
+export * from './select';
+export * from './dropdown-menu';
+export * from './table';
+export * from './command';
+export * from './popover';
 
 // Layout Components
 export { Stack } from './stack';

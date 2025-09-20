@@ -75,8 +75,8 @@ export const workflowService = {
         if (transition.required_role === userRole.role) return true;
 
         // Authors can transition their own content in certain stages
-        if (content.author_id === currentUserId && 
-            transition.from_stage === 'draft' && 
+        if (content.author_id === currentUserId &&
+            transition.from_stage === 'draft' &&
             transition.to_stage === 'review') {
           return true;
         }
@@ -95,8 +95,8 @@ export const workflowService = {
    * Validate content before stage transition
    */
   async validateTransition(
-    contentId: string, 
-    toStage: string, 
+    contentId: string,
+    toStage: string,
     comment?: string
   ): Promise<ValidationResult> {
     // Get content first
@@ -158,8 +158,8 @@ export const workflowService = {
    * Transition content to new stage
    */
   async transitionStage(
-    contentId: string, 
-    toStage: string, 
+    contentId: string,
+    toStage: string,
     comment?: string,
     userId?: string
   ): Promise<void> {

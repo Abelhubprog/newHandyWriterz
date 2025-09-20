@@ -1,13 +1,13 @@
 /**
  * Post Model Definitions
- * 
+ *
  * This file defines the Post model interfaces and repository for the HandyWriterz application.
- * 
+ *
  * @file src/models/Post.ts
  */
 
 // Import from our compatibility layer (which now uses Cloudflare D1 under the hood)
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 
 /**
  * Post Status Enum
@@ -53,7 +53,7 @@ export interface PostUpdateInput extends Partial<Omit<Post, 'id' | 'created_at' 
 
 /**
  * Post Repository Class
- * 
+ *
  * Handles all database operations for the Post model
  */
 export class PostRepository {
@@ -61,7 +61,7 @@ export class PostRepository {
 
   /**
    * Create a new post
-   * 
+   *
    * @param data Post input data
    * @returns The created post
    */
@@ -71,8 +71,8 @@ export class PostRepository {
       ...data,
       status: data.status || PostStatus.DRAFT,
     };
-    
-    const { data: post, error } = await supabase
+
+  const { data: post, error } = await database
       .from(this.table)
       .insert(postData)
       .select()
@@ -81,15 +81,15 @@ export class PostRepository {
     if (error) throw error;
     return post;
   }
-  
+
   /**
    * Get a post by ID
-   * 
+   *
    * @param id Post ID
    * @returns The post or null if not found
    */
   static async getById(id: string): Promise<Post | null> {
-    const { data: post, error } = await supabase
+  const { data: post, error } = await database
       .from(this.table)
       .select()
       .eq('id', id)
@@ -101,15 +101,15 @@ export class PostRepository {
     }
     return post;
   }
-  
+
   /**
    * Get a post by slug
-   * 
+   *
    * @param slug Post slug
    * @returns The post or null if not found
    */
   static async getBySlug(slug: string): Promise<Post | null> {
-    const { data: post, error } = await supabase
+  const { data: post, error } = await database
       .from(this.table)
       .select()
       .eq('slug', slug)
@@ -121,10 +121,10 @@ export class PostRepository {
     }
     return post;
   }
-  
+
   /**
    * List all posts with pagination and optional filters
-   * 
+   *
    * @param page Page number (starts at 1)
    * @param limit Items per page
    * @param status Optional status filter
@@ -141,7 +141,7 @@ export class PostRepository {
     categoryId?: string,
     tagId?: string
   ): Promise<{ posts: Post[], total: number }> {
-    let query = supabase
+  let query = database
       .from(this.table)
       .select('*', { count: 'exact' });
 
@@ -175,10 +175,10 @@ export class PostRepository {
       total: count || 0
     };
   }
-  
+
   /**
    * List published posts with pagination
-   * 
+   *
    * @param page Page number (starts at 1)
    * @param limit Items per page
    * @returns Object with posts array and total count
@@ -189,16 +189,16 @@ export class PostRepository {
   ): Promise<{ posts: Post[], total: number }> {
     return this.list(page, limit, PostStatus.PUBLISHED);
   }
-  
+
   /**
    * Update a post
-   * 
+   *
    * @param id Post ID
    * @param data Post update data
    * @returns The updated post
    */
   static async update(id: string, data: PostUpdateInput): Promise<Post> {
-    const { data: post, error } = await supabase
+  const { data: post, error } = await database
       .from(this.table)
       .update(data)
       .eq('id', id)
@@ -208,15 +208,15 @@ export class PostRepository {
     if (error) throw error;
     return post;
   }
-  
+
   /**
    * Delete a post
-   * 
+   *
    * @param id Post ID
    * @returns Boolean indicating success
    */
   static async delete(id: string): Promise<boolean> {
-    const { error } = await supabase
+  const { error } = await database
       .from(this.table)
       .delete()
       .eq('id', id);
@@ -224,10 +224,10 @@ export class PostRepository {
     if (error) throw error;
     return true;
   }
-  
+
   /**
    * Search posts by title or content
-   * 
+   *
    * @param query Search query string
    * @param limit Maximum number of results to return
    * @returns Object with posts array and total count
@@ -236,7 +236,7 @@ export class PostRepository {
     query: string,
     limit: number = 10
   ): Promise<{ posts: Post[], total: number }> {
-    const { data: posts, error, count } = await supabase
+  const { data: posts, error, count } = await database
       .from(this.table)
       .select('*', { count: 'exact' })
       .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
@@ -250,10 +250,10 @@ export class PostRepository {
       total: count || 0
     };
   }
-  
+
   /**
    * Generate a unique slug from a title
-   * 
+   *
    * @param title Post title
    * @returns A unique slug
    */
@@ -263,21 +263,21 @@ export class PostRepository {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-    
+
     // Check if slug already exists
     const existingPost = await this.getBySlug(slug);
-    
+
     if (!existingPost) {
       return slug;
     }
-    
+
     // Slug exists, append a unique ID
     return `${slug}-${Math.random().toString(36).substring(2, 10)}`;
   }
-  
+
   /**
    * Publish a post (sets status to PUBLISHED and sets publishedAt)
-   * 
+   *
    * @param id Post ID
    * @returns The updated post
    */
@@ -287,10 +287,10 @@ export class PostRepository {
       published_at: new Date().toISOString()
     });
   }
-  
+
   /**
    * Unpublish a post (sets status to DRAFT)
-   * 
+   *
    * @param id Post ID
    * @returns The updated post
    */
@@ -300,10 +300,10 @@ export class PostRepository {
       published_at: null
     });
   }
-  
+
   /**
    * Archive a post
-   * 
+   *
    * @param id Post ID
    * @returns The updated post
    */
@@ -312,4 +312,4 @@ export class PostRepository {
       status: PostStatus.ARCHIVED
     });
   }
-} 
+}

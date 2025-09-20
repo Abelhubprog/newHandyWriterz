@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { 
-  FileText, 
-  Upload, 
-  X, 
+import {
+  FileText,
+  Upload,
+  X,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Download,
   Eye
 } from 'lucide-react';
-import { d1Client as supabase } from '../../lib/d1Client';
+import database from '../../lib/d1Client';
 import { telegramService, type TelegramFile } from '../../lib/telegram';
 
 interface TurnitinUploadProps {
@@ -123,7 +123,7 @@ function TurnitinUpload({ onClose }: TurnitinUploadProps) {
     try {
       setDownloadingFile(fileId);
       const file = await telegramService.downloadFile(fileId);
-      
+
       if (file.download_url) {
         window.open(file.download_url, '_blank');
       }
@@ -239,13 +239,13 @@ function TurnitinUpload({ onClose }: TurnitinUploadProps) {
             <div className="text-center py-8">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
               <p className="text-lg font-medium text-green-600">File uploaded successfully!</p>
-              
+
               {receivedFiles.length > 0 ? (
                 <div className="mt-6">
                   <p className="text-gray-600 mb-4">Your Turnitin reports are ready:</p>
                   <div className="space-y-3">
                     {receivedFiles.map((file) => (
-                      <div 
+                      <div
                         key={file.id}
                         className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                       >

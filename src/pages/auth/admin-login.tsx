@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail, AlertTriangle, Shield, ArrowLeft, Settings } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
-import { useSignIn, useUser } from '@clerk/clerk-react';
-import { adminAuthService } from '@/services/adminAuthService';
+import { useSignIn, useUser, useClerk } from '@clerk/clerk-react';
+import { hasAdminRole } from '@/utils/clerkRoles';
 
 /**
  * Admin Login Component
@@ -19,6 +19,7 @@ const AdminLogin: React.FC = () => {
   const [hasInitialized, setHasInitialized] = useState(false);
 
   const { isSignedIn, user } = useUser();
+  const clerk = useClerk();
   
   // Check if we're already logged in - with fix for blinking issue
   useEffect(() => {
@@ -40,7 +41,7 @@ const AdminLogin: React.FC = () => {
         // Check if user is already signed in with Clerk
         if (isSignedIn && user) {
           // Verify if the user is an admin
-          const isAdmin = await adminAuthService.isAdmin(user.id);
+          const isAdmin = hasAdminRole(user);
           
           // Only redirect if user is admin and on the admin login page
           const isAdminLoginPage = 
@@ -118,13 +119,14 @@ const AdminLogin: React.FC = () => {
         throw new Error('Additional verification required to complete sign in.');
       }
 
-      const adminUserId = result.userId ?? result.createdUserId;
-      if (!adminUserId) {
-        throw new Error('Unable to verify your account.');
-      }
+      // Session created; Clerk will manage active user
 
-      const hasAdminAccess = await adminAuthService.isAdmin(adminUserId);
-      if (!hasAdminAccess) {
+      await setActive({ session: result.createdSessionId });
+      await clerk.user?.reload?.();
+      const activeUser = clerk.user ?? user;
+
+      if (!hasAdminRole(activeUser)) {
+        await clerk.signOut();
         throw new Error('You do not have admin privileges');
       }
 
@@ -132,11 +134,12 @@ const AdminLogin: React.FC = () => {
         await setActive({ session: result.createdSessionId });
       }
 
-      toast.success('Admin login successful! Redirecting to dashboard...');
+  toast.success('Admin login successful! Redirecting to dashboard...');
 
-      sessionStorage.setItem('last_admin_redirect', Date.now().toString());
+  sessionStorage.setItem('last_admin_redirect', Date.now().toString());
 
-      navigate('/admin');
+  // Redirect explicitly to the admin dashboard index to avoid nested route ambiguity
+  navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       if (err && typeof err === 'object' && 'errors' in err && Array.isArray((err as any).errors)) {
         const message = (err as any).errors[0]?.message ?? 'Login failed. Please try again.';

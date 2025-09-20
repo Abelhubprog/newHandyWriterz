@@ -1,13 +1,13 @@
 /**
  * User Model Definitions
- * 
+ *
  * This file defines the User model interfaces and repository for the HandyWriterz application.
- * 
+ *
  * @file src/models/User.ts
  */
 
 // Import from our compatibility layer (which now uses Cloudflare D1 under the hood)
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 
 /**
  * User Role Enum
@@ -56,7 +56,7 @@ export interface UserUpdateInput extends Partial<Omit<User, 'id' | 'created_at' 
 
 /**
  * User Repository Class
- * 
+ *
  * Handles all database operations for the User model
  */
 export class UserRepository {
@@ -64,7 +64,7 @@ export class UserRepository {
 
   /**
    * Create a new user
-   * 
+   *
    * @param data User input data
    * @returns The created user
    */
@@ -75,8 +75,8 @@ export class UserRepository {
       role: data.role || UserRole.USER,
       is_active: data.is_active !== undefined ? data.is_active : true
     };
-    
-    const { data: user, error } = await supabase
+
+  const { data: user, error } = await database
       .from(this.table)
       .insert(userData)
       .select()
@@ -85,15 +85,15 @@ export class UserRepository {
     if (error) throw error;
     return user;
   }
-  
+
   /**
    * Get a user by ID
-   * 
+   *
    * @param id User ID
    * @returns The user or null if not found
    */
   static async getById(id: string): Promise<User | null> {
-    const { data: user, error } = await supabase
+  const { data: user, error } = await database
       .from(this.table)
       .select()
       .eq('id', id)
@@ -105,15 +105,15 @@ export class UserRepository {
     }
     return user;
   }
-  
+
   /**
    * Get a user by email
-   * 
+   *
    * @param email User email
    * @returns The user or null if not found
    */
   static async getByEmail(email: string): Promise<User | null> {
-    const { data: user, error } = await supabase
+  const { data: user, error } = await database
       .from(this.table)
       .select()
       .eq('email', email)
@@ -125,10 +125,10 @@ export class UserRepository {
     }
     return user;
   }
-  
+
   /**
    * List all users with pagination and optional filters
-   * 
+   *
    * @param page Page number (starts at 1)
    * @param limit Items per page
    * @param role Optional role filter
@@ -141,7 +141,7 @@ export class UserRepository {
     role?: UserRole,
     isActive?: boolean
   ): Promise<{ users: User[], total: number }> {
-    let query = supabase
+  let query = database
       .from(this.table)
       .select('*', { count: 'exact' });
 
@@ -167,16 +167,16 @@ export class UserRepository {
       total: count || 0
     };
   }
-  
+
   /**
    * Update a user
-   * 
+   *
    * @param id User ID
    * @param data User update data
    * @returns The updated user
    */
   static async update(id: string, data: UserUpdateInput): Promise<User> {
-    const { data: user, error } = await supabase
+  const { data: user, error } = await database
       .from(this.table)
       .update(data)
       .eq('id', id)
@@ -186,15 +186,15 @@ export class UserRepository {
     if (error) throw error;
     return user;
   }
-  
+
   /**
    * Delete a user
-   * 
+   *
    * @param id User ID
    * @returns Boolean indicating success
    */
   static async delete(id: string): Promise<boolean> {
-    const { error } = await supabase
+  const { error } = await database
       .from(this.table)
       .delete()
       .eq('id', id);
@@ -202,10 +202,10 @@ export class UserRepository {
     if (error) throw error;
     return true;
   }
-  
+
   /**
    * Update a user's last login time
-   * 
+   *
    * @param id User ID
    * @returns The updated user
    */
@@ -214,10 +214,10 @@ export class UserRepository {
       last_login: new Date().toISOString()
     });
   }
-  
+
   /**
    * Deactivate a user
-   * 
+   *
    * @param id User ID
    * @returns The updated user
    */
@@ -226,10 +226,10 @@ export class UserRepository {
       is_active: false
     });
   }
-  
+
   /**
    * Activate a user
-   * 
+   *
    * @param id User ID
    * @returns The updated user
    */
@@ -238,10 +238,10 @@ export class UserRepository {
       is_active: true
     });
   }
-  
+
   /**
    * Change a user's role
-   * 
+   *
    * @param id User ID
    * @param role New role
    * @returns The updated user
@@ -249,16 +249,16 @@ export class UserRepository {
   static async changeRole(id: string, role: UserRole): Promise<User> {
     return this.update(id, { role });
   }
-  
+
   /**
    * Search users by name or email
-   * 
+   *
    * @param query Search query string
    * @param limit Maximum number of results to return
    * @returns Array of matching users
    */
   static async search(query: string, limit: number = 10): Promise<User[]> {
-    const { data: users, error } = await supabase
+  const { data: users, error } = await database
       .from(this.table)
       .select()
       .or(`name.ilike.%${query}%,email.ilike.%${query}%`)

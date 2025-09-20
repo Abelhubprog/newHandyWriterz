@@ -38,13 +38,15 @@ export function getErrorMessage(error: unknown): string {
  */
 export function reportError(error: unknown, context?: Record<string, unknown>) {
   const errorWithMessage = toErrorWithMessage(error);
-  
+
   // Log to console in development
   if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.error('Error reported:', {
       message: errorWithMessage.message,
       name: errorWithMessage.name,
       stack: errorWithMessage.stack,
-      code: errorWithMessage.code,
+      code: (errorWithMessage as any).code,
       context
     });
   }

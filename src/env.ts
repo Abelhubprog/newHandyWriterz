@@ -29,26 +29,26 @@ const envSchema = z.object({
   VITE_STABLELINK_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
 
   // Public Features
-  VITE_ENABLE_PUBLIC_ACCESS: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_PUBLIC_ROUTES: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_COMMENTS: z.string().transform((val: string) => val === 'true').default(true),
+  VITE_ENABLE_PUBLIC_ACCESS: z.coerce.boolean().default(true),
+  VITE_ENABLE_PUBLIC_ROUTES: z.coerce.boolean().default(true),
+  VITE_ENABLE_COMMENTS: z.coerce.boolean().default(true),
 
   // Admin Features
-  VITE_ENABLE_ADMIN_DASHBOARD: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_USER_MANAGEMENT: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_CONTENT_MANAGEMENT: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_ROLE_MANAGEMENT: z.string().transform((val: string) => val === 'true').default(true),
+  VITE_ENABLE_ADMIN_DASHBOARD: z.coerce.boolean().default(true),
+  VITE_ENABLE_USER_MANAGEMENT: z.coerce.boolean().default(true),
+  VITE_ENABLE_CONTENT_MANAGEMENT: z.coerce.boolean().default(true),
+  VITE_ENABLE_ROLE_MANAGEMENT: z.coerce.boolean().default(true),
 
   // Service configuration
-  VITE_TURNITIN_MAX_FILE_SIZE: z.string().transform((val: string) => parseInt(val, 10)).default(20971520),
+  VITE_TURNITIN_MAX_FILE_SIZE: z.coerce.number().default(20971520),
   VITE_TURNITIN_ALLOWED_TYPES: z.string().default('application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
 
   // Feature flags
-  VITE_ENABLE_TURNITIN: z.string().transform((val: string) => val === 'true').default(true),
-  VITE_ENABLE_TELEGRAM: z.string().transform((val: string) => val === 'true').default(true),
+  VITE_ENABLE_TURNITIN: z.coerce.boolean().default(true),
+  VITE_ENABLE_TELEGRAM: z.coerce.boolean().default(true),
 
   // Web3 Configuration
-  VITE_DISABLE_METAMASK_DETECTION: z.string().transform((val: string) => val === 'true').optional().default(false),
+  VITE_DISABLE_METAMASK_DETECTION: z.coerce.boolean().optional().default(false),
   VITE_PREFERRED_WALLET: z.string().optional().default('metamask')
 });
 

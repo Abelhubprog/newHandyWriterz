@@ -64,9 +64,9 @@ export async function verifyPayment(chargeId: string): Promise<boolean> {
     });
 
     if (!response.ok) {
-      logger.error('Failed to verify payment', { 
+      logger.error('Failed to verify payment', {
         chargeId,
-        status: response.status 
+        status: response.status
       });
       return false;
     }
@@ -77,11 +77,11 @@ export async function verifyPayment(chargeId: string): Promise<boolean> {
 
     // Check if payment is confirmed
     const isConfirmed = lastStatus === 'COMPLETED' || lastStatus === 'CONFIRMED';
-    
+
     if (!isConfirmed) {
-      logger.info('Payment not confirmed', { 
+      logger.info('Payment not confirmed', {
         chargeId,
-        status: lastStatus 
+        status: lastStatus
       });
     }
 

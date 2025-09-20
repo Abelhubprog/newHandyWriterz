@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { Link } from 'react-router-dom';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 import { usePostQueries } from '@/hooks/usePostQueries';
@@ -25,13 +25,13 @@ interface StandardServicePageProps {
 
 /**
  * StandardServicePage - A reusable component for service pages
- * 
+ *
  * This component handles:
  * 1. SEO optimization with proper meta tags
  * 2. Fetching service-related posts from Supabase
  * 3. Displaying a hero section, service overview, and blog posts
  * 4. Performance optimization with code splitting and lazy loading
- * 
+ *
  * @param props - Component properties
  */
 const StandardServicePage: React.FC<StandardServicePageProps> = ({
@@ -55,16 +55,16 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
   const { data: serviceDetails, isLoading: isLoadingService } = useQuery({
     queryKey: ['service', serviceType],
     queryFn: async () => {
-      const { data, error } = await supabase
+  const { data, error } = await database
         .from('services')
         .select('*')
         .eq('slug', serviceType)
         .single();
-      
+
       if (error) {
         return null;
       }
-      
+
       return data;
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -83,19 +83,19 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
         <title>{title}</title>
         <meta name="description" content={description} />
         <meta name="keywords" content={keywords.join(', ')} />
-        
+
         {/* Open Graph / Social Media */}
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:type" content="website" />
         {heroImage && <meta property="og:image" content={heroImage} />}
-        
+
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
         {heroImage && <meta name="twitter:image" content={heroImage} />}
-        
+
         {/* Canonical URL */}
         <link rel="canonical" href={`https://handywriterz.com/services/${serviceType}`} />
       </Helmet>
@@ -122,7 +122,7 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
 
         {/* Hero Section - Lazy loaded */}
         <Suspense fallback={<div className="h-96 bg-gray-100 animate-pulse"></div>}>
-          <ServiceHero 
+          <ServiceHero
             title={serviceDetails?.title || formattedServiceName}
             description={serviceDetails?.description || description}
             icon={icon}
@@ -132,7 +132,7 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
 
         {/* Service Overview - Lazy loaded */}
         <Suspense fallback={<div className="h-64 bg-gray-50 animate-pulse"></div>}>
-          <ServiceOverview 
+          <ServiceOverview
             serviceType={serviceType}
             features={serviceDetails?.features || []}
             benefits={serviceDetails?.benefits || []}
@@ -144,7 +144,7 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900">Latest Resources</h2>
-              <Link 
+              <Link
                 to={`/blog?service=${serviceType}`}
                 className="flex items-center text-blue-600 hover:text-blue-800"
               >
@@ -152,13 +152,13 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </div>
-            
+
             {isLoadingPosts ? (
               <div className="flex justify-center py-12">
                 <LoadingSpinner size="lg" />
               </div>
             ) : (
-              <BlogPostsList 
+              <BlogPostsList
                 serviceType={serviceType}
                 limit={6}
                 showFilters={false}
@@ -174,4 +174,4 @@ const StandardServicePage: React.FC<StandardServicePageProps> = ({
   );
 };
 
-export default StandardServicePage; 
+export default StandardServicePage;

@@ -10,13 +10,15 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { toast, Toaster } from 'react-hot-toast';
-import MfaChallenge from '@/components/auth/MfaChallenge';
+// Placeholder: component not available in repo; render a simple message instead
+const MfaChallenge: React.FC<{ onSuccess?: (u:any)=>void; onCancel?: ()=>void }> = () => null;
 import { AlertTriangle, Bug, KeyRound } from 'lucide-react';
-import { adminAuthService } from '@/services/adminAuthService';
-import { specialMfaLogin } from '@/lib/appwrite';
+import { useClerk } from '@clerk/clerk-react';
+// Appwrite integration not present; omit special login fallback
 
 const MfaChallengePage: React.FC = () => {
   const navigate = useNavigate();
+  const clerk = useClerk();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -27,7 +29,15 @@ const MfaChallengePage: React.FC = () => {
   // Debug helper function
   const runMfaDebug = async () => {
     try {
-      const info = await adminAuthService.debugMfaSession();
+      const info = {
+        clerkUserId: clerk.user?.id || null,
+        clerkSessionId: clerk.session?.id || null,
+        hasActiveSession: Boolean(clerk.session),
+        hasMfaSessionId: Boolean(localStorage.getItem('mfaSessionId')),
+        hasUserId: Boolean(localStorage.getItem('mfaUserId')),
+        hasEmail: Boolean(localStorage.getItem('mfaEmail')),
+        hasType: Boolean(localStorage.getItem('mfaType')),
+      };
       setDebugInfo({
         ...info,
         appVersion: import.meta.env.VITE_APP_VERSION || 'unknown',
@@ -127,28 +137,7 @@ const MfaChallengePage: React.FC = () => {
       return;
     }
     
-    try {
-      toast.loading('Attempting special login...', { id: 'special-login' });
-      const user = await specialMfaLogin(email, password, specialCode);
-      toast.success('Authentication successful!', { id: 'special-login' });
-      
-      // Store admin info in localStorage
-      localStorage.setItem('adminUser', JSON.stringify(user));
-      localStorage.setItem('adminSession', 'true');
-      
-      // Clean up temporary data
-      sessionStorage.removeItem('tempAuthPassword');
-      localStorage.removeItem('mfaSessionId');
-      localStorage.removeItem('mfaType');
-      localStorage.removeItem('pendingMfaEmail');
-      localStorage.removeItem('mfaErrorData');
-      
-      // Redirect to admin dashboard or the original destination
-      const redirectTo = location.state?.from || '/admin/dashboard';
-      navigate(redirectTo, { replace: true });
-    } catch (error: any) {
-      toast.error(error.message || 'Login failed', { id: 'special-login' });
-    }
+    toast.error('Special login is not available');
   };
   
   return (
@@ -233,7 +222,6 @@ const MfaChallengePage: React.FC = () => {
           <MfaChallenge 
             onSuccess={handleMfaSuccess}
             onCancel={handleMfaCancel}
-            mfaType={localStorage.getItem('mfaType') || 'totp'}
           />
           
           <div className="mt-4 flex justify-between">

@@ -105,7 +105,7 @@ export const getFileCategoryByExtension = (ext: string): FileCategory => {
 };
 
 // Get file icon based on category
-export const getFileIcon = (category: FileCategory) => {
+export const getFileIconByCategory = (category: FileCategory) => {
   switch (category) {
     case 'document':
       return FiFileText;
@@ -122,9 +122,9 @@ export const getFileIcon = (category: FileCategory) => {
 
 // Upload a file to Cloudflare R2 storage
 export const uploadFile = async (
-  file: File, 
-  bucket: string, 
-  path: string, 
+  file: File,
+  bucket: string,
+  path: string,
   onProgress?: (progress: number) => void
 ): Promise<{ success: boolean; url?: string; path?: string; error?: string }> => {
   try {
@@ -143,7 +143,7 @@ export const uploadFile = async (
       const progressInterval = setInterval(() => {
         onProgress(Math.min(90, Math.random() * 80 + 10));
       }, 100);
-      
+
       setTimeout(() => {
         clearInterval(progressInterval);
         onProgress(100);
@@ -217,10 +217,10 @@ export const uploadFiles = async (
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    const result = await uploadFile(file, bucket, path, 
+    const result = await uploadFile(file, bucket, path,
       (progress) => onProgress && onProgress(progress, file, i)
     );
-    
+
     results.push({
       ...result,
       file: result.success ? file : undefined,
@@ -249,7 +249,7 @@ export const uploadMultipleFiles = async (
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
-    
+
     try {
       // Validate file first
       const validation = validateFile(file);
@@ -282,7 +282,8 @@ export const uploadMultipleFiles = async (
       while (attempt < MAX_ATTEMPTS && !uploadOk) {
         attempt++;
         try {
-          uploadResult = await documentSubmissionService.uploadToR2Worker(file, filePath);
+          // Attempt without token first; in dashboard contexts, token may not be required by worker in dev
+          uploadResult = await documentSubmissionService.uploadToR2Worker(file, filePath, '');
           if (uploadResult && uploadResult.success) {
             uploadOk = true;
             break;
@@ -335,13 +336,13 @@ export const uploadMultipleFiles = async (
 // Utility function to format file size
 export const formatBytes = (bytes: number, decimals = 2): string => {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  
+
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
@@ -354,7 +355,9 @@ const fileUploadService = {
   deleteFile,
   validateFile,
   getFileCategory,
-  getFileIcon,
+  // Expose the category-based icon resolver; the legacy getFileIcon symbol
+  // is intentionally not exported to avoid runtime ReferenceError.
+  getFileIconByCategory,
   formatBytes
 };
 

@@ -1,9 +1,10 @@
-import { d1Client as supabase } from './d1Client';
+import database from './d1Client';
+import { authAdapter } from '@/services/authAdapter';
 
 // Get comments for a post
 export async function getPostComments(postId: string) {
   try {
-    const { data: comments, error } = await supabase
+    const { data: comments, error } = await database
       .from('comments')
       .select(`
         *,
@@ -12,7 +13,7 @@ export async function getPostComments(postId: string) {
       .eq('post_id', postId)
       .eq('status', 'approved')
       .order('created_at', { ascending: true });
-    
+
     if (error) throw error;
     return { comments, error: null };
   } catch (error) {
@@ -24,12 +25,12 @@ export async function getPostComments(postId: string) {
 export async function addComment(postId: string, content: string) {
   try {
     // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await authAdapter.getCurrentUser();
     if (!user) {
       throw new Error('You must be logged in to comment');
     }
-    
-    const { data: comment, error } = await supabase
+
+    const { data: comment, error } = await database
       .from('comments')
       .insert({
         post_id: postId,
@@ -39,7 +40,7 @@ export async function addComment(postId: string, content: string) {
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return { comment, error: null };
   } catch (error) {
@@ -51,19 +52,19 @@ export async function addComment(postId: string, content: string) {
 export async function updateComment(commentId: string, content: string) {
   try {
     // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await authAdapter.getCurrentUser();
     if (!user) {
       throw new Error('You must be logged in to update a comment');
     }
-    
-    const { data: comment, error } = await supabase
+
+    const { data: comment, error } = await database
       .from('comments')
       .update({ content })
       .eq('id', commentId)
       .eq('author_id', user.id) // Ensure user owns the comment
       .select()
       .single();
-    
+
     if (error) throw error;
     return { comment, error: null };
   } catch (error) {
@@ -75,26 +76,26 @@ export async function updateComment(commentId: string, content: string) {
 export async function deleteComment(commentId: string) {
   try {
     // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await authAdapter.getCurrentUser();
     if (!user) {
       throw new Error('You must be logged in to delete a comment');
     }
-    
+
     // Check if user is an admin
-    const { data: isAdmin } = await supabase.rpc('is_admin');
-    
-    let query = supabase
+    const isAdmin = await authAdapter.hasRole('admin');
+
+    let query = database
       .from('comments')
       .delete()
       .eq('id', commentId);
-    
+
     // If not admin, restrict to author's own comments
     if (!isAdmin) {
       query = query.eq('author_id', user.id);
     }
-    
+
     const { error } = await query;
-    
+
     if (error) throw error;
     return { success: true, error: null };
   } catch (error) {
@@ -105,12 +106,12 @@ export async function deleteComment(commentId: string) {
 // Get comment count for a post
 export async function getCommentCount(postId: string) {
   try {
-    const { count, error } = await supabase
+    const { count, error } = await database
       .from('comments')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
       .eq('status', 'approved');
-    
+
     if (error) throw error;
     return { count, error: null };
   } catch (error) {

@@ -5,7 +5,6 @@
  */
 
 import { cloudflare } from '@/lib/cloudflareClient';
-
 // Mock data for development/fallback
 const mockData = {
   posts: [
@@ -135,16 +134,31 @@ const mockData = {
 
 class DatabaseService {
   private useMockData: boolean;
+  private mockTables: Record<string, any[]>;
 
   constructor() {
     // Use mock data if Cloudflare is not configured
     this.useMockData = !import.meta.env.VITE_CLOUDFLARE_DATABASE_URL;
+    this.mockTables = {
+      posts: mockData.posts,
+      service_pages: [],
+      service_page_summaries: [],
+      service_categories: [],
+    };
+
     if (this.useMockData && import.meta.env.DEV) {
       // Only show warning once in development
       if (!globalThis.__mockDataWarningShown) {
         globalThis.__mockDataWarningShown = true;
       }
     }
+  }
+
+  private getMockTable(table: string): any[] {
+    if (!this.mockTables[table]) {
+      this.mockTables[table] = [];
+    }
+    return this.mockTables[table];
   }
 
   async getPosts(filters: {
@@ -154,7 +168,7 @@ class DatabaseService {
     limit?: number;
   } = {}): Promise<any[]> {
     if (this.useMockData) {
-      let posts = [...mockData.posts];
+      let posts = [...this.getMockTable('posts')];
 
       if (filters.status) {
         posts = posts.filter(p => p.status === filters.status);
@@ -233,7 +247,8 @@ class DatabaseService {
 
   async getPostBySlug(slug: string): Promise<any | null> {
     if (this.useMockData) {
-      return mockData.posts.find(p => p.slug === slug) || null;
+      const postsTable = this.getMockTable('posts');
+      return postsTable.find(p => p.slug === slug) || null;
     }
 
     try {
@@ -250,7 +265,8 @@ class DatabaseService {
       const result = await cloudflare.from('posts').eq('slug', slug).single();
       return result.data;
     } catch (error) {
-      return mockData.posts.find(p => p.slug === slug) || null;
+      const postsTable = this.getMockTable('posts');
+      return postsTable.find(p => p.slug === slug) || null;
     }
   }
 
@@ -269,6 +285,7 @@ class DatabaseService {
     tags?: string;
   }): Promise<any> {
     if (this.useMockData) {
+      const postsTable = this.getMockTable('posts');
       const newPost = {
         id: `post-${Date.now()}`,
         title: data.title,
@@ -288,7 +305,7 @@ class DatabaseService {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      mockData.posts.push(newPost);
+      postsTable.push(newPost);
       return newPost;
     }
 
@@ -331,16 +348,17 @@ class DatabaseService {
     tags: string;
   }>): Promise<any> {
     if (this.useMockData) {
-      const index = mockData.posts.findIndex(p => p.id === id);
+      const postsTable = this.getMockTable('posts');
+      const index = postsTable.findIndex(p => p.id === id);
       if (index === -1) throw new Error('Post not found');
 
-      mockData.posts[index] = {
-        ...mockData.posts[index],
+      postsTable[index] = {
+        ...postsTable[index],
         ...data,
         updated_at: new Date().toISOString()
       };
 
-      return mockData.posts[index];
+      return postsTable[index];
     }
 
     try {
@@ -368,9 +386,9 @@ class DatabaseService {
         const updates: any = { status };
         if (paymentStatus) updates.payment_status = paymentStatus;
 
-        const result = await cloudflare.from('orders').eq('id', orderId).update(updates).execute();
-        if (result.error) throw result.error;
-        return { order: result.data, error: null };
+  const result = await cloudflare.from('orders').eq('id', orderId).update(updates).execute();
+  if ((result as any).error) throw (result as any).error;
+  return { order: (result as any).data, error: null };
       } catch (error) {
         return { order: null, error };
       }
@@ -383,9 +401,9 @@ class DatabaseService {
       }
 
       try {
-        const result = await cloudflare.from('orders').eq('id', orderId).update({ metadata }).execute();
-        if (result.error) throw result.error;
-        return { success: true, data: result.data };
+  const result = await cloudflare.from('orders').eq('id', orderId).update({ metadata }).execute();
+  if ((result as any).error) throw (result as any).error;
+  return { success: true, data: (result as any).data };
       } catch (error) {
         return { success: false, error };
       }
@@ -419,7 +437,8 @@ class DatabaseService {
 
   async incrementViewCount(postId: string): Promise<void> {
     if (this.useMockData) {
-      const post = mockData.posts.find(p => p.id === postId);
+      const postsTable = this.getMockTable('posts');
+      const post = postsTable.find(p => p.id === postId);
       if (post) {
         post.view_count++;
       }
@@ -439,6 +458,85 @@ class DatabaseService {
   }
 
   // Legacy methods for backward compatibility
+  async list(table: string, filters: Record<string, any> = {}): Promise<any[]> {
+    if (this.useMockData) {
+      const tableData = [...this.getMockTable(table)];
+      const entries = Object.entries(filters).filter(([, value]) => value !== undefined && value !== null);
+      if (entries.length === 0) {
+        return tableData;
+      }
+      return tableData.filter((row) => entries.every(([key, value]) => String(row[key]) === String(value)));
+    }
+
+    let query = cloudflare.from(table).select('*');
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+
+    const result = await query.execute();
+    return result.data || [];
+  }
+
+  async getBySlug(table: string, slug: string, slugColumn: string = 'slug', extraFilters: Record<string, any> = {}): Promise<any | null> {
+    const filters = { ...extraFilters, [slugColumn]: slug };
+
+    if (this.useMockData) {
+      const tableData = this.getMockTable(table);
+      return tableData.find((row) =>
+        Object.entries(filters).every(([key, value]) => String(row[key]) === String(value))
+      ) || null;
+    }
+
+    let query = cloudflare.from(table).select('*').eq(slugColumn, slug);
+    for (const [key, value] of Object.entries(extraFilters)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+
+    const result = await query.single();
+    return result.data;
+  }
+
+  async upsert(table: string, data: Record<string, any>, conflictColumns: string[] = []): Promise<any> {
+    if (this.useMockData) {
+      const tableData = this.getMockTable(table);
+      let index = -1;
+
+      if (conflictColumns.length > 0) {
+        index = tableData.findIndex((row) =>
+          conflictColumns.every((column) => String(row[column]) === String(data[column]))
+        );
+      } else if (data.id) {
+        index = tableData.findIndex((row) => String(row.id) === String(data.id));
+      }
+
+      if (index >= 0) {
+        const merged = { ...tableData[index], ...data, updated_at: data.updated_at || new Date().toISOString() };
+        tableData[index] = merged;
+        return merged;
+      }
+
+      const stored = {
+        ...data,
+        id: data.id || `${table}-mock-${Date.now()}`,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || new Date().toISOString(),
+      };
+      tableData.push(stored);
+      return stored;
+    }
+
+    const result = await cloudflare.upsert(table, data).execute();
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    return result.data;
+  }
+
   async create(table: string, data: any) {
     if (table === 'posts') {
       return this.createPost(data);
@@ -463,25 +561,48 @@ class DatabaseService {
     throw new Error(`Update operation not implemented for table: ${table}`);
   }
 
-  async delete(table: string, id: string) {
+  async delete(table: string, criteria: string | Record<string, any>): Promise<boolean> {
     if (this.useMockData) {
-      if (table === 'posts') {
-        const index = mockData.posts.findIndex(p => p.id === id);
+      const tableData = this.getMockTable(table);
+
+      if (typeof criteria === 'string') {
+        const index = tableData.findIndex((row) => String(row.id) === String(criteria));
         if (index !== -1) {
-          mockData.posts.splice(index, 1);
+          tableData.splice(index, 1);
           return true;
         }
+        return false;
       }
-      return false;
+
+      const entries = Object.entries(criteria).filter(([, value]) => value !== undefined && value !== null);
+      let removed = false;
+      for (let index = tableData.length - 1; index >= 0; index -= 1) {
+        const row = tableData[index];
+        const matches = entries.every(([key, value]) => String(row[key]) === String(value));
+        if (matches) {
+          tableData.splice(index, 1);
+          removed = true;
+        }
+      }
+      return removed;
     }
 
-    try {
-      await cloudflare.from(table).eq('id', id).delete();
+    let query = cloudflare.from(table);
+    if (typeof criteria === 'string') {
+      await query.eq('id', criteria).delete();
       return true;
-    } catch (error) {
-      throw error;
     }
+
+    for (const [key, value] of Object.entries(criteria)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+
+    await query.delete();
+    return true;
   }
 }
+
 
 export default new DatabaseService();

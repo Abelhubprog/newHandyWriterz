@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { d1Client as db } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { toast } from 'react-hot-toast';
 import { Loader } from '@/components/ui/Loader';
 
@@ -32,7 +32,7 @@ const ClerkAdminAuth: React.FC<ClerkAdminAuthProps> = ({ children }) => {
 
       try {
         // Check if user is an admin in Cloudflare D1
-        const { data: adminData, error } = await db
+  const { data: adminData, error } = await database
           .from('admin_users')
           .select('*')
           .eq('email', user.primaryEmailAddress?.emailAddress || '')
@@ -43,10 +43,10 @@ const ClerkAdminAuth: React.FC<ClerkAdminAuthProps> = ({ children }) => {
         } else {
           // User is admin if they exist in the admin_users table
           setIsAdmin(!!adminData);
-          
+
           // Log admin access for audit purposes
           if (adminData) {
-            await db
+            await database
               .from('admin_access_logs')
               .insert({
                 admin_id: adminData.id,

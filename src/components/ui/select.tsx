@@ -3,12 +3,13 @@ import { cn } from "@/lib/utils"
 
 export interface SelectProps
   extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
   placeholder?: string;
+  onValueChange?: (value: string) => void;
 }
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, options, placeholder, ...props }, ref) => {
+  ({ className, options = [], placeholder, onValueChange, onChange, ...props }, ref) => {
     return (
       <select
         className={cn(
@@ -16,10 +17,14 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           className
         )}
         ref={ref}
+        onChange={(e) => {
+          onValueChange?.(e.target.value)
+          onChange?.(e)
+        }}
         {...props}
       >
         {placeholder && (
-          <option value="" disabled selected>
+          <option value="" disabled>
             {placeholder}
           </option>
         )}
@@ -34,5 +39,30 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 )
 
 Select.displayName = "Select"
+// Shadcn-like API shims used by existing code
+const SelectTrigger = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, children, ...props }, ref) => (
+    <div ref={ref} className={cn("inline-flex items-center justify-between rounded-md border px-2 py-1 text-sm", className)} {...props}>
+      {children}
+    </div>
+  )
+)
+SelectTrigger.displayName = "SelectTrigger"
 
-export { Select }
+const SelectContent: React.FC<React.HTMLAttributes<HTMLDivElement> & { side?: string }> = ({ className, children, ...props }) => (
+  <div className={cn("mt-2 rounded-md border bg-white p-1 shadow-md", className)} {...props}>
+    {children}
+  </div>
+)
+
+const SelectItem: React.FC<React.HTMLAttributes<HTMLDivElement> & { value: string }> = ({ className, children, ...props }) => (
+  <div className={cn("cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm hover:bg-gray-100", className)} {...props}>
+    {children}
+  </div>
+)
+
+const SelectValue: React.FC<{ placeholder?: React.ReactNode; children?: React.ReactNode }> = ({ placeholder, children }) => (
+  <span>{children ?? placeholder}</span>
+)
+
+export { Select, SelectTrigger, SelectContent, SelectItem, SelectValue }

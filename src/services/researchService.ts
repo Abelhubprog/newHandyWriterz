@@ -45,10 +45,10 @@ class ResearchService {
       for (const stage of stages) {
         callbacks.onProgress(stage.name, totalProgress, `Starting ${stage.name.toLowerCase()}...`);
         await new Promise(resolve => setTimeout(resolve, stage.duration));
-        
+
         totalProgress += 25;
         callbacks.onProgress(
-          stage.name, 
+          stage.name,
           totalProgress,
           `Completed ${stage.name.toLowerCase()}`
         );
@@ -170,4 +170,4 @@ class ResearchService {
   }
 }
 
-export const researchService = new ResearchService(); 
+export const researchService = new ResearchService();

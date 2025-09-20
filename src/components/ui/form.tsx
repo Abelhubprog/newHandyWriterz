@@ -52,7 +52,7 @@ export function FormDescription({ children, className, ...props }: FormDescripti
 }
 
 interface FormMessageProps extends React.HTMLAttributes<HTMLParagraphElement> {
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 
@@ -90,3 +90,21 @@ export function FormSection({ children, title, description, className }: FormSec
     </div>
   );
 }
+
+// Composite Field wrapper used by form controls
+export const Field = Object.assign(FormControl, { Label: FormLabel });
+
+export { FormLabel as Label };
+
+// Shadcn-like light shims to reduce type errors in forms
+export const Form: React.FC<{ children?: ReactNode; className?: string } & React.FormHTMLAttributes<HTMLFormElement>> = ({ children, className, ...props }) => (
+  <form className={cn('space-y-6', className)} {...props}>{children}</form>
+);
+
+export const FormItem: React.FC<{ children?: ReactNode; className?: string }> = ({ children, className }) => (
+  <div className={cn('space-y-2', className)}>{children}</div>
+);
+
+export const FormField: React.FC<{ children?: ReactNode; className?: string; name?: string }> = ({ children, className }) => (
+  <div className={cn('space-y-2', className)}>{children}</div>
+);

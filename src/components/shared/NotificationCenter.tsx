@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { 
+import {
   Bell,
   MessageCircle,
   Clipboard,
@@ -12,7 +12,7 @@ import {
   Check,
   Settings
 } from 'lucide-react';
-import { d1Client as supabase } from '../../lib/d1Client';
+import database from '../../lib/d1Client';
 
 interface Notification {
   id: string;

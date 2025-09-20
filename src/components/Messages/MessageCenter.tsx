@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import { toast } from 'react-hot-toast';
 import { MessageSquare, Send, X } from 'lucide-react';
 
@@ -21,18 +21,18 @@ export const MessageCenter: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    
+
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const result = await database
           .from('messages')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        setMessages(data || []);
+
+        if ((result as any).error) throw (result as any).error;
+        setMessages((result as any).data || []);
       } catch (error) {
         toast.error('Failed to load messages');
       } finally {
@@ -41,43 +41,29 @@ export const MessageCenter: React.FC = () => {
     };
 
     fetchMessages();
-    
-    // Subscribe to real-time message updates
-    const subscription = supabase
-      .channel('messages-channel')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages',
-        filter: `user_id=eq.${user.id}` 
-      }, (payload: { new: Message }) => {
-        // Add new message to state
-        setMessages(prev => [payload.new as Message, ...prev]);
-      })
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+
+    // No realtime on D1; poll occasionally in UI if needed
+    const interval = setInterval(fetchMessages, 15000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleSendMessage = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!newMessage.trim() || !user) return;
-    
+
     try {
-      const { error } = await supabase
+      const result = await database
         .from('messages')
         .insert({
           user_id: user.id,
           content: newMessage.trim(),
           sender_type: 'user',
           is_read: false
-        });
-      
-      if (error) throw error;
-      
+        }) as any;
+
+      if ((result as any)?.error) throw (result as any).error;
+
       setNewMessage('');
       toast.success('Message sent successfully');
     } catch (error) {
@@ -90,7 +76,7 @@ export const MessageCenter: React.FC = () => {
       <div className="border-b px-6 py-4">
         <h2 className="text-xl font-bold">Messages</h2>
       </div>
-      
+
       {loading ? (
         <div className="p-6 text-center">
           <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full mx-auto"></div>
@@ -100,11 +86,11 @@ export const MessageCenter: React.FC = () => {
         <div className="p-6">
           <div className="space-y-4 max-h-[400px] overflow-y-auto mb-4">
             {messages.map((message) => (
-              <div 
+              <div
                 key={message.id}
                 className={`p-3 rounded-lg ${
-                  message.sender_type === 'user' 
-                    ? 'bg-blue-100 ml-12' 
+                  message.sender_type === 'user'
+                    ? 'bg-blue-100 ml-12'
                     : 'bg-gray-100 mr-12'
                 }`}
               >
@@ -115,7 +101,7 @@ export const MessageCenter: React.FC = () => {
               </div>
             ))}
           </div>
-          
+
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <input
               type="text"
@@ -136,7 +122,7 @@ export const MessageCenter: React.FC = () => {
         <div className="p-6 text-center text-gray-500">
           <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
           <p className="mb-4">No messages yet</p>
-          
+
           <form onSubmit={handleSendMessage} className="flex gap-2 max-w-md mx-auto">
             <input
               type="text"

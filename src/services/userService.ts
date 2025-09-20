@@ -120,7 +120,7 @@ export const userService = {
       });
 
       await databaseService.update('profiles', id, updateData);
-      
+
       // Return updated user
       return await this.getUser(id);
     } catch (error) {
@@ -191,7 +191,7 @@ export const userService = {
   async getUserStats(): Promise<any> {
     try {
       const users = await databaseService.read('profiles');
-      
+
       const stats = {
         total: users.length,
         active: users.filter(u => u.status === 'active').length,
@@ -224,7 +224,7 @@ export const userService = {
   async searchUsers(query: string): Promise<UserProfile[]> {
     try {
       const users = await databaseService.read('profiles');
-      
+
       const searchLower = query.toLowerCase();
       return users.filter(user =>
         user.full_name?.toLowerCase().includes(searchLower) ||

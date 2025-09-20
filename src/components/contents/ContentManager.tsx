@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { d1Client as supabase } from '@/lib/d1Client';
+import database from '@/lib/d1Client';
 import {
   Card,
   CardContent,
@@ -20,9 +20,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { 
-  Loader2, 
-  PlusCircle, 
+import {
+  Loader2,
+  PlusCircle,
   Search,
   BookOpen,
   Settings,
@@ -105,7 +105,7 @@ const ContentManager: React.FC<ContentManagerProps> = ({
 
       if (error) throw error;
       setPosts(data || []);
-      
+
       // Calculate stats
       const totalViews = data?.reduce((sum, post) => sum + (post.views || 0), 0) || 0;
       const totalLikes = data?.reduce((sum, post) => sum + (post.likes || 0), 0) || 0;
@@ -191,13 +191,13 @@ const ContentManager: React.FC<ContentManagerProps> = ({
         .eq('id', post.id);
 
       if (error) throw error;
-      
+
       if (editingPost) {
         setEditingPost(null);
         setNewPost({ title: '', content: '', category: '', resource_links: [] });
         setShowAddDialog(false);
       }
-      
+
       fetchPosts();
       toast.success('Post updated successfully');
     } catch (error) {
@@ -234,13 +234,13 @@ const ContentManager: React.FC<ContentManagerProps> = ({
   };
 
   const filteredPosts = posts.filter(post => {
-    const matchesSearch = 
+    const matchesSearch =
       post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
   });
 
@@ -388,9 +388,9 @@ const ContentManager: React.FC<ContentManagerProps> = ({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div 
+                  <div
                     className="prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: post.content }} 
+                    dangerouslySetInnerHTML={{ __html: post.content }}
                   />
                   {post.resource_links && post.resource_links.length > 0 && (
                     <div className="mt-4">
@@ -519,7 +519,7 @@ const ContentManager: React.FC<ContentManagerProps> = ({
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle>User Permissions</CardTitle>

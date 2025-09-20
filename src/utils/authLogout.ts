@@ -1,40 +1,35 @@
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+type SignOutFn = (params?: { redirectUrl?: string }) => Promise<void>;
 
-export async function performLogout() {
+export async function performLogout(signOut?: SignOutFn) {
   try {
-    // Clear client-side storage
-    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+    try { localStorage.clear(); sessionStorage.clear(); } catch (error) {}
 
-    // Clear caches if available
     if (typeof caches !== 'undefined') {
       try {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      } catch (e) {
-        // ignore
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      } catch (error) {
+        // ignore cache deletion errors
       }
     }
 
-    // Call Clerk signOut if available
-    // Note: import is dynamic to avoid hooking Clerk in non-React contexts
-    try {
-      const clerk = await import('@clerk/clerk-react');
-      const auth = clerk.useAuth ? clerk.useAuth() : null;
-      if (auth && auth.signOut) {
-        await auth.signOut({ redirectUrl: '/' } as any);
-        return;
-      }
-    } catch (e) {
-      // fallback to global signOut if not available
-      if ((window as any).Clerk && typeof (window as any).Clerk.signOut === 'function') {
-        await (window as any).Clerk.signOut();
+    if (signOut) {
+      await signOut({ redirectUrl: '/' });
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const globalClerk = (window as any).Clerk;
+      if (globalClerk && typeof globalClerk.signOut === 'function') {
+        await globalClerk.signOut({ redirectUrl: '/' });
         return;
       }
     }
+  } catch (error) {
+    console.error('performLogout error', error);
+  }
 
-    // If all else fails, force a redirect
-    window.location.href = '/';
-  } catch (err) {
+  if (typeof window !== 'undefined') {
     window.location.href = '/';
   }
 }

@@ -1,3 +1,6 @@
+// This file has been moved to _archive/services
+// The original file is no longer available at this location.
+// Please refer to _archive/services/adminNotificationService.ts for the updated file.
 import databaseService from '@/services/databaseService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -54,7 +57,7 @@ export const adminNotificationService = {
       target: process.env.TELEGRAM_ADMIN_CHAT_ID || ''
     }
   } as NotificationConfig,
-  
+
   /**
    * Send notification to admin with priority and channel selection
    */
@@ -69,17 +72,17 @@ export const adminNotificationService = {
       config?: NotificationConfig;
     } = {}
   ): Promise<{ success: boolean; notificationId: string; channels: NotificationChannel[] }> {
-    const { 
+    const {
       priority = 'medium',
       channels = ['in-app', 'email'],
       metadata = {},
       user_id,
       config = this.defaultConfig
     } = options;
-    
+
     const notificationId = uuidv4();
     const timestamp = new Date().toISOString();
-    
+
     // Create notification record
     const notification: AdminNotification = {
       id: notificationId,
@@ -93,7 +96,7 @@ export const adminNotificationService = {
       created_at: timestamp,
       updated_at: timestamp
     };
-    
+
     // Try to store in database
     try {
       await databaseService.create('admin_notifications', {
@@ -111,12 +114,12 @@ export const adminNotificationService = {
     } catch (error) {
       // Continue even if storage fails - we'll try to deliver anyway
     }
-    
+
     // Dispatch to all channels
     const successfulChannels: NotificationChannel[] = [];
-    
+
     // Dispatch in parallel
-    const dispatchers = channels.map(channel => 
+    const dispatchers = channels.map(channel =>
       this.dispatchToChannel(notification, channel, config)
         .then(success => {
           if (success) successfulChannels.push(channel);
@@ -126,12 +129,12 @@ export const adminNotificationService = {
           notification.status[channel] = 'failed';
         })
     );
-    
+
     await Promise.allSettled(dispatchers);
-    
+
     // Update notification status
     notification.updated_at = new Date().toISOString();
-    
+
     try {
       await databaseService.update('admin_notifications', notification.id, {
         status: notification.status,
@@ -139,27 +142,27 @@ export const adminNotificationService = {
       });
     } catch (error) {
     }
-    
+
     return {
       success: successfulChannels.length > 0,
       notificationId: notification.id,
       channels: successfulChannels
     };
   },
-  
+
   /**
    * Initialize status for all channels
    */
   initializeStatus(channels: NotificationChannel[]): Record<NotificationChannel, NotificationStatus> {
     const status: Partial<Record<NotificationChannel, NotificationStatus>> = {};
-    
+
     channels.forEach(channel => {
       status[channel] = 'pending';
     });
-    
+
     return status as Record<NotificationChannel, NotificationStatus>;
   },
-  
+
   /**
    * Dispatch notification to a specific channel
    */
@@ -172,27 +175,27 @@ export const adminNotificationService = {
       switch (channel) {
         case 'in-app':
           return await this.sendInAppNotification(notification);
-          
+
         case 'email':
           if (!config.email?.enabled) return false;
           return await this.sendEmailNotification(notification, config.email.target);
-          
+
         case 'sms':
           if (!config.sms?.enabled) return false;
           return await this.sendSmsNotification(notification, config.sms.target);
-          
+
         case 'telegram':
           if (!config.telegram?.enabled) return false;
           return await this.sendTelegramNotification(notification, config.telegram.target);
-          
+
         case 'discord':
           if (!config.discord?.enabled) return false;
           return await this.sendDiscordNotification(notification, config.discord.target);
-          
+
         case 'slack':
           if (!config.slack?.enabled) return false;
           return await this.sendSlackNotification(notification, config.slack.target);
-          
+
         default:
           return false;
       }
@@ -200,7 +203,7 @@ export const adminNotificationService = {
       return false;
     }
   },
-  
+
   /**
    * Send in-app notification
    */
@@ -217,10 +220,10 @@ export const adminNotificationService = {
         is_read: false,
         created_at: notification.created_at
       });
-      
+
       return true;
     } catch (error) {
-      
+
       // Try fallback to regular messages
       if (notification.user_id) {
         try {
@@ -231,37 +234,37 @@ ${notification.title}
 ----------------------------------------------------------
 ${notification.message}
           `.trim();
-          
+
           await databaseService.create('messages', {
             user_id: notification.user_id,
             content: formattedContent,
             sender_type: 'admin',
             is_read: false
           });
-          
+
           return true;
         } catch (fallbackError) {
         }
       }
-      
+
       return false;
     }
   },
-  
+
   /**
    * Send email notification (mock implementation)
    */
   async sendEmailNotification(notification: AdminNotification, target: string): Promise<boolean> {
     try {
       // Mock email sending
-      
+
       // In a real implementation, integrate with an email service
       return true;
     } catch (error) {
       return false;
     }
   },
-  
+
   /**
    * Send SMS notification (mock implementation)
    */
@@ -274,17 +277,17 @@ ${notification.message}
         high: '[IMPORTANT]',
         urgent: '[URGENT]'
       };
-      
+
       const message = `${priorityPrefix[notification.priority]} ${notification.title}\n\n${notification.message.substring(0, 140)}${notification.message.length > 140 ? '...' : ''}`;
-      
-      
+
+
       // In a real implementation, integrate with an SMS service
       return true;
     } catch (error) {
       return false;
     }
   },
-  
+
   /**
    * Send Telegram notification (mock implementation)
    */
@@ -297,7 +300,7 @@ ${notification.message}
         high: '📙',
         urgent: '📕'
       };
-      
+
       const message = `
 ${priorityEmoji[notification.priority]} *${notification.title}*
 _Priority: ${notification.priority.toUpperCase()}_
@@ -308,41 +311,41 @@ ${notification.user_id ? `👤 User: \`${notification.user_id}\`` : ''}
 🆔 Notification ID: \`${notification.id}\`
 ⏰ Time: ${new Date(notification.created_at).toLocaleString()}
       `.trim();
-      
-      
+
+
       // In a real implementation, integrate with Telegram Bot API
       return true;
     } catch (error) {
       return false;
     }
   },
-  
+
   /**
    * Send Discord notification (mock implementation)
    */
   async sendDiscordNotification(notification: AdminNotification, webhookUrl: string): Promise<boolean> {
     try {
-      
+
       // In a real implementation, send to Discord webhook
       return true;
     } catch (error) {
       return false;
     }
   },
-  
+
   /**
    * Send Slack notification (mock implementation)
    */
   async sendSlackNotification(notification: AdminNotification, webhookUrl: string): Promise<boolean> {
     try {
-      
+
       // In a real implementation, send to Slack webhook
       return true;
     } catch (error) {
       return false;
     }
   },
-  
+
   /**
    * Mark notification as read
    */
@@ -354,13 +357,13 @@ ${notification.user_id ? `👤 User: \`${notification.user_id}\`` : ''}
         return true;
       } catch (error) {
       }
-      
+
       // Try updating the notification record
       await databaseService.update('admin_notifications', notificationId, {
         'status.in-app': 'read',
         updated_at: new Date().toISOString()
       });
-      
+
       return true;
     } catch (error) {
       return false;

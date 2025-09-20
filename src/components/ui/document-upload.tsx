@@ -8,9 +8,9 @@
 
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FileText, X, Upload, File, Download, Trash2 } from 'lucide-react';
+import { FileText, Upload, File, Download, Trash2 } from 'lucide-react';
 import { Button } from './button';
-import { uploadDocument, deleteDocument, getDocumentUrl } from '@/lib/appwriteStorage';
+import { uploadFile as uploadToR2, deleteFile as deleteFromR2 } from '@/services/fileUploadService';
 
 interface DocumentUploadProps {
   value?: string;
@@ -44,21 +44,22 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       if (onFileNameChange) {
         onFileNameChange(file.name);
       }
-      
-      const result = await uploadDocument(file);
-      
-      onChange(result.url);
-      
-      // Save the file ID for later deletion
-      if (onFileIdChange) {
-        onFileIdChange(result.fileId);
+      // Upload to R2 via our service
+      const folder = 'uploads';
+      const result = await uploadToR2(file, 'default', folder, undefined);
+
+      if (!result.success || !result.url || !result.path) {
+        throw new Error(result.error || 'Upload failed');
       }
+      onChange(result.url);
+      // Save the file key for deletion
+      onFileIdChange?.(result.path);
     } catch (error) {
       onError?.(error as Error);
     } finally {
       setLoading(false);
     }
-  }, {base: onChange, onError, md: onFileIdChange, lg: onFileNameChange});
+  }, [onChange, onError, onFileIdChange, onFileNameChange]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -74,16 +75,12 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
   const handleRemove = async () => {
     try {
-      if (value && fileId) {
-        await deleteDocument(fileId);
-        onChange('');
-        if (onFileIdChange) {
-          onFileIdChange('');
-        }
-        if (onFileNameChange) {
-          onFileNameChange('');
-        }
+      if (fileId) {
+        await deleteFromR2('default', fileId);
       }
+      onChange('');
+      onFileIdChange?.('');
+      onFileNameChange?.('');
     } catch (error) {
       onError?.(error as Error);
     }
@@ -160,7 +157,7 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
                   handleRemove();
                 }}
               >
-                <Table.Rowash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="h-4 w-4 mr-1" />
                 Remove
               </Button>
             </div>

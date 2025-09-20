@@ -273,7 +273,10 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
               </p>
             </div>
           }
-        />
+        >
+          {/* Fallback-only guard; no interactive children for non-subscribers */}
+          <div />
+        </SubscriptionGuard>
       </div>
     );
   }

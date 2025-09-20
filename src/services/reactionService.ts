@@ -1,4 +1,5 @@
-import { cloudflare } from '@/lib/cloudflareClient';
+import database from '@/lib/d1Client';
+import { FLAGS } from '@/config/flags';
 import { UserReaction } from '@/types/blog';
 
 /**
@@ -7,12 +8,13 @@ import { UserReaction } from '@/types/blog';
  * @returns Promise with an array of reactions
  */
 export async function getPostReactions(postId: string): Promise<UserReaction[]> {
+  if (!FLAGS.engagement) return [];
   try {
-    const { data, error } = await cloudflare
+    const { data, error } = await database
       .from('user_reactions')
       .select('*')
       .eq('post_id', postId)
-      .execute();
+      .all();
 
     if (error) {
       throw error;
@@ -30,11 +32,13 @@ export async function getPostReactions(postId: string): Promise<UserReaction[]> 
  * @returns Promise with an array of reactions
  */
 export async function getUserReactions(userId: string): Promise<UserReaction[]> {
+  if (!FLAGS.engagement) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from('user_reactions')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .all();
 
     if (error) {
       throw error;
@@ -58,8 +62,9 @@ export async function getUserReactionForPost(
   postId: string,
   type: 'like' | 'dislike' | 'bookmark'
 ): Promise<UserReaction | null> {
+  if (!FLAGS.engagement) return null;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from('user_reactions')
       .select('*')
       .eq('user_id', userId)
@@ -92,7 +97,7 @@ export async function getUserReactionsForPost(
   postId: string
 ): Promise<UserReaction[]> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from('user_reactions')
       .select('*')
       .eq('user_id', userId)
@@ -120,6 +125,7 @@ export async function addReaction(
   postId: string,
   type: 'like' | 'dislike' | 'bookmark'
 ): Promise<UserReaction> {
+  if (!FLAGS.engagement) throw new Error('Engagement is disabled');
   try {
     // Check if reaction already exists
     const existingReaction = await getUserReactionForPost(userId, postId, type);
@@ -128,21 +134,20 @@ export async function addReaction(
     }
 
     // Add the reaction
-    const { data, error } = await supabase
+    const { error } = await database
       .from('user_reactions')
       .insert({
         user_id: userId,
         post_id: postId,
         type
-      })
-      .select()
-      .single();
+      });
 
     if (error) {
       throw error;
     }
 
-    return data;
+    // Return the created reaction object
+    return { id: 'new', user_id: userId, post_id: postId, type } as unknown as UserReaction;
   } catch (error) {
     throw error;
   }
@@ -160,8 +165,9 @@ export async function removeReaction(
   postId: string,
   type: 'like' | 'dislike' | 'bookmark'
 ): Promise<{ success: boolean }> {
+  if (!FLAGS.engagement) return { success: false };
   try {
-    const { error } = await supabase
+    const { error } = await database
       .from('user_reactions')
       .delete()
       .eq('user_id', userId)
@@ -190,6 +196,7 @@ export async function toggleReaction(
   postId: string,
   type: 'like' | 'dislike' | 'bookmark'
 ): Promise<{ added: boolean; reaction?: UserReaction }> {
+  if (!FLAGS.engagement) return { added: false };
   try {
     // Check if reaction already exists
     const existingReaction = await getUserReactionForPost(userId, postId, type);
@@ -216,9 +223,10 @@ export async function toggleReaction(
 export async function getReactionCounts(
   postId: string
 ): Promise<{ likes: number; dislikes: number; bookmarks: number }> {
+  if (!FLAGS.engagement) return { likes: 0, dislikes: 0, bookmarks: 0 };
   try {
     // Get the post with reaction counts
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from('blog_posts')
       .select('likes, dislikes, bookmarks')
       .eq('id', postId)
@@ -236,4 +244,4 @@ export async function getReactionCounts(
   } catch (error) {
     throw error;
   }
-} 
+}
