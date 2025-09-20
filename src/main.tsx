@@ -22,6 +22,7 @@ import { ThemeProvider } from './theme/ThemeContext';
 import Web3Provider from './providers/Web3Provider';
 import { logEnvironmentStatus } from './utils/checkEnv';
 import './index.css';
+import './styles.css';
 import { router } from './router';
 import ErrorBoundary from './components/common/ErrorBoundary';
 

@@ -10,6 +10,8 @@ import {
   Link
 } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
+import DomainPage from '@/pages/DomainPage';
+import PostPage from '@/pages/PostPage';
 import { Toaster } from 'react-hot-toast';
 
 // Inline Orders component (fallback included)
@@ -195,6 +197,10 @@ export const router = createBrowserRouter([
       { path: "d/technology", element: withSuspenseAndError(TechnologyDomain)() },
       { path: "d/ai", element: withSuspenseAndError(AIDomain)() },
       { path: "d/crypto", element: withSuspenseAndError(CryptoDomain)() },
+
+  // Dynamic domain + post routes (new public content system)
+  { path: ":domain", element: <DomainPage /> },
+  { path: ":domain/:slug", element: <PostPage /> },
 
       // Legacy Service Pages (to be archived/redirected)
       { path: "services/adult-health-nursing", element: <Navigate to="/d/adult-health" replace /> },
